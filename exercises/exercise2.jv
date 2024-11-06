@@ -26,11 +26,11 @@ pipeline MadeTreePipeline {
 
     valuetype data_Stadtteil oftype text {
         constraints: [
-            Vogelsang_as_valid
+            Vogelsangasvalid
         ];
     }
 
-    constraint Vogelsang_as_valid oftype RegexConstraint {
+    constraint Vogelsangasvalid oftype RegexConstraint {
         regex: /^Vogelsang-/;
     }
 
@@ -50,6 +50,7 @@ pipeline MadeTreePipeline {
     block Data_extract oftype SQLiteLoader {
         table: "trees";
         file: "trees.sqlite";
+        dropTable: false;
     }
 
     Current_Extractor -> Tree_File_Interpreter
