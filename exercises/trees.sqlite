@@ -31,7 +31,7 @@ pipeline MadeTreePipeline {
     }
 
     constraint FurthConstraint oftype RegexConstraint {
-        regex: /^Furth-.*/;
+        regex: /^(Furth-|Other-Stadtteil1|Other-Stadtteil2)/;
     }
 
     block Interpreting_data oftype TableInterpreter {
