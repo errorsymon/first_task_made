@@ -10,6 +10,8 @@ Analyzing the GDP disparities between North and South American countries and the
 
 
 ##Description
+
+
 By identifying and evaluating the major contributing causes, this research seeks to investigate the notable discrepancies in gross domestic product (GDP) between North and South American nations. This study aims to determine how factors like trade policies, resource distribution, governance quality, education levels, and industrialization affect GDP levels across various regions by looking at a variety of economic, social, political, and historical factors. Furthermore, this research will take into account global factors, such as trade and foreign investment, and how these differ in their effects on the economic performance of nations on each continent.
 The ultimate objective is to offer a thorough comprehension of the economic disparities that occur throughout the Americas and the fundamental processes that underlie them. This analysis may be useful to economists, policymakers.
 
