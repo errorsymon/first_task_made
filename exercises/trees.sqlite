@@ -1,64 +1,60 @@
-pipeline MadeTreePipeline {
+pipeline Made_tree_Pipeline {
 
-    block Current_Extractor oftype HttpExtractor {
+     
+    block DataExtractor oftype HttpExtractor {
         url: "https://opendata.rhein-kreis-neuss.de/api/v2/catalog/datasets/stadt-neuss-herbstpflanzung-2023/exports/csv";
     }
 
-    block Tree_File_Interpreter oftype TextFileInterpreter { }
-
-    block CSV_file_Parser oftype CSVInterpreter {
-        delimiter: ';';
+    block Trees_original_file_Interpreter oftype TextFileInterpreter {
+        encoding: "latin6";
     }
 
-    block Co_Remover oftype ColumnDeleter {
+    block CSV_file_parser oftype CSVInterpreter {
+        delimiter: ";";
+    }
+
+    block Column_Deleter oftype ColumnDeleter {
         delete: [column E];
-    }
+    } 
 
-    valuetype Accurate_GeoPattern oftype text {
-        constraints: [
-            GeoPatternConstraint
-        ];
-    }
-
-    constraint GeoPatternConstraint oftype RegexConstraint {
-        regex: /^\d{1,3}\.\d+, \d{1,3}\.\d+$/;
-    }
-
-    valuetype data_Stadtteil oftype text {
-        constraints: [
-            Vogelsangasvalid
-        ];
-    }
-
-    constraint Vogelsangasvalid oftype RegexConstraint {
-        regex: /^Vogelsang-/;
-    }
-    
-    valuetype Vogelsang_defined oftype text {constraints: [Vogelsangasvalid,];}
-
-
-    block Interpreting_data oftype TableInterpreter {
-        header: true;
+    block Table_mapper oftype TableInterpreter {
+        header: false;
         columns: [
             "lfd_nr" oftype integer,
-            "stadtteil" oftype data_Stadtteil,
+            "stadtteil" oftype Vogelsang_defined,
             "standort" oftype text,
             "baumart_botanisch" oftype text,
-            "baumart_deutsch" oftype text,
-            "id" oftype Accurate_GeoPattern,            
-            "baumfamilie" oftype text
+            "id" oftype Geo_defined_as,
+            "baumfamilie" oftype text  
         ];
     }
 
-    block Data_extract oftype SQLiteLoader {
+    block  Data_Fetcher oftype SQLiteLoader {
         table: "trees";
-        file: "trees.sqlite";
+        file: "./trees.sqlite";
         dropTable: false;
+
+    }
+constraint Vogelsang_actual_format oftype RegexConstraint {
+        regex: /^Vogelsang/;
     }
 
-    Current_Extractor -> Tree_File_Interpreter
-                   -> CSV_file_Parser
-                   -> Co_Remover
-                   -> Interpreting_data
-                   -> Data_extract;
+valuetype Vogelsang_defined oftype text {constraints: [Vogelsang_actual_format,];}
+
+ 
+constraint Geo_as_defined oftype RegexConstraint {
+        regex: /^(\d{1,3}\.\d+), (\d{1,3}\.\d+)$/;
+    }
+
+valuetype Geo_defined_as oftype text {constraints: [Geo_as_defined,];}
+    
+
+    DataExtractor
+    -> Trees_original_file_Interpreter
+    -> CSV_file_parser
+    -> Column_Deleter
+    -> Table_mapper
+    -> Data_Fetcher;
 }
+
+
