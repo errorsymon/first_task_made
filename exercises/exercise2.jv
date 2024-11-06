@@ -33,6 +33,8 @@ pipeline MadeTreePipeline {
     constraint Vogelsangasvalid oftype RegexConstraint {
         regex: /^Vogelsang-/;
     }
+    valuetype Vogelsang_defined oftype text {constraints: [Vogelsangasvalid,];}
+
 
     block Interpreting_data oftype TableInterpreter {
         header: true;
