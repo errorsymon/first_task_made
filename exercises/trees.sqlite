@@ -1,4 +1,3 @@
-
 pipeline MadeTreePipeline {
 
     block Current_Extractor oftype HttpExtractor {
@@ -34,6 +33,8 @@ pipeline MadeTreePipeline {
     constraint Vogelsangasvalid oftype RegexConstraint {
         regex: /^Vogelsang-/;
     }
+    valuetype Vogelsang_defined oftype text {constraints: [Vogelsang_defined_format,];}
+
 
     block Interpreting_data oftype TableInterpreter {
         header: true;
