@@ -17,7 +17,7 @@ The ultimate objective is to offer a thorough comprehension of the economic disp
 
 ## Datasources
 * Metadata URL: https://data.worldbank.org/indicator/NY.GDP.MKTP.CD
-* Data URL: 
+* Data URL: https://github.com/errorsymon/Data/blob/main/API_NY.GDP.MKTP.CD_DS2_en_csv_v2_9865%20(1).zip
 * Type: CSV
 
 
