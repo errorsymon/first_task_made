@@ -1,39 +1,39 @@
 pipeline World_bank_data {
 // Pipline root to node
-    World_bank_data_Extractor
-        -> File_XLSX_Interpreter
-        -> Figure_Sheet_Collector
-        -> Change_Country_Code
-        -> Change_GDP_And_Bond_attribute
-        -> Range_data_for_P2
-        -> Bond_Table_Interpreter
-        -> Bond_Loader;
+    WorldbankExtractor
+        -> FileXLSXInterpreter
+        -> FigureSheetpicker
+        -> ChangeCountryCode
+        -> ChangeGDPAndBond
+        -> DataRange
+        -> BondTableInterpreter
+        -> BondLoader;
 
 
 // Ranging data following the instructions
-    Range_data_for_P2
-        -> Data_Interpreter_for_GDP_column
-        -> GDP_value_Loader_Per_capita;
+    DataRange
+        -> GDPTableInterpreter
+        -> GDPLoader;
 
 // World Bank data extracting through the given link
-    block World_bank_data_Extractor oftype HttpExtractor {
+    block WorldbankExtractor oftype HttpExtractor {
         url: "https://thedocs.worldbank.org/en/doc/7d852628d96b9411d43e5d36d5dff941-0050062022/original/Graphs-Chapter-5-02082022.xlsx";
     }
 
-    block File_XLSX_Interpreter oftype XLSXInterpreter { }
+    block FileXLSXInterpreter oftype XLSXInterpreter { }
 // Specification of sheet picking 
-    block Figure_Sheet_Collector oftype SheetPicker {
+    block FigureSheetpicker oftype SheetPicker {
         sheetName: 'Figure S5.1.2';
     }
 // Country code changing through cell writing
-    block Change_Country_Code oftype CellWriter {
+    block ChangeCountryCode oftype CellWriter {
         at: range P2:P2;
         write: [
             "Country Code",
         ];
     }
-// Chnaging in gdp and bond issunce share value
-    block Change_GDP_And_Bond_attribute oftype CellWriter {
+// Changing in gdp and bond issunce share value
+    block ChangeGDPAndBond oftype CellWriter {
         at: range R2:S2;
         write: [
             "GDP per Capita",
@@ -41,20 +41,20 @@ pipeline World_bank_data {
         ];
     }
 // Specific data selction for P2: S45
-    block Range_data_for_P2 oftype CellRangeSelector {
+    block DataRange oftype CellRangeSelector {
         select: range P2:S45;
     }
-// Table interpreting With ranging to defines value "ISO_3166_1" and for Bond Issuance Share "RangeZeroToOne"
+// Table interpreting
 
-    block Bond_Table_Interpreter oftype TableInterpreter {
+    block BondTableInterpreter oftype TableInterpreter {
         header: true;
         columns: [
             "Country Code" oftype ISO_3166_1,
-            "Bond Issuance Share" oftype RangeZeroToOne
+            "Bond Issuance Share" oftype valueBetweenZeroAndOne
         ];
     }
 // Creation of Sqlite file
-    block Bond_Loader oftype SQLiteLoader {
+    block BondLoader oftype SQLiteLoader {
 
         table: "bondIssuance";
         file: "country-stats.sqlite";
@@ -62,7 +62,7 @@ pipeline World_bank_data {
 
 // Defines the format of two column
 
-    block Data_Interpreter_for_GDP_column oftype TableInterpreter {
+    block GDPTableInterpreter oftype TableInterpreter {
         header: true;
         columns: [
             "Country Code" oftype ISO_3166_1,
@@ -70,7 +70,7 @@ pipeline World_bank_data {
         ];
     }
 // Gdp block for per capita 
-    block GDP_value_Loader_Per_capita oftype SQLiteLoader {
+    block GDPLoader oftype SQLiteLoader {
         table: "gdpPerCapita";
         file: "country-stats.sqlite";
     }
@@ -89,15 +89,14 @@ constraint ISO_3166_1_Validator oftype RegexConstraint {
 // Positive value validations
 valuetype positiveDecimal oftype decimal {
     constraints: [
-        positivevalue
+        positiveDecimalValidator
     ];
 }
-constraint positivevalue on decimal: value > 0;
+constraint positiveDecimalValidator on decimal: value > 0;
 // Define the value betwwen zero and one
-valuetype RangeZeroToOne oftype decimal {
+valuetype valueBetweenZeroAndOne oftype decimal {
     constraints: [
-        BondIssuanceShareConstraint
-    ]
+        valueBetweenZeroAndOneValidator
+    ];
 }
-// used to validate the data and enforce that the "Bond Issuance Share" values are correct and within the expected range
-constraint BondIssuanceShareConstraint on decimal: value >= 0 and value <= 1;
+constraint valueBetweenZeroAndOneValidator on decimal: value >= 0 and value <= 1;
