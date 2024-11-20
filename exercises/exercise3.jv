@@ -1,4 +1,3 @@
-
 composite blocktype DataProcessor {
     property url oftype text;
     input inputvalue oftype None;
