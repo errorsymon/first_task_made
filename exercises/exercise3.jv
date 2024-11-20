@@ -1,101 +1,102 @@
-pipeline WorldbankDataProcessingPipeline {
+pipeline World_bank_data {
+// Pipline root to node
+    WorldbankExtractor
+        -> FileXLSXInterpreter
+        -> FigureSheetpicker
+        -> ChangeCountryCode
+        -> ChangeGDPAndBond
+        -> DataRange
+        -> BondTableInterpreter
+        -> BondLoader;
 
-    DataExtractor
-        -> XLSXFileInterpreter
-        -> SheetPicker
-        -> CountryCodeRenamer
-        -> HeaderRenamer
-        -> DataRangeSelector
-        -> BondDataInterpreter
-        -> BondDataLoader;
-        
-    DataRangeSelector
-        -> GDPDataInterpreter
-        -> GDPDataLoader;
 
-    
-    block DataExtractor oftype HttpExtractor {
+// Ranging data following the instructions
+    DataRange
+        -> GDPTableInterpreter
+        -> GDPLoader;
+
+// World Bank data extracting through the given link
+    block WorldbankExtractor oftype HttpExtractor {
         url: "https://thedocs.worldbank.org/en/doc/7d852628d96b9411d43e5d36d5dff941-0050062022/original/Graphs-Chapter-5-02082022.xlsx";
     }
 
-    // Interpreting the XLSX file format
-    block XLSXFileInterpreter oftype XLSXInterpreter { }
-
-    // Selecting the relevant sheet "Figure S5.1.2"
-    block SheetPicker oftype SheetPicker {
+    block FileXLSXInterpreter oftype XLSXInterpreter { }
+// Specification of sheet picking 
+    block FigureSheetpicker oftype SheetPicker {
         sheetName: 'Figure S5.1.2';
     }
-
-    // Renaming the "Country Code" column
-    block CountryCodeRenamer oftype CellWriter {
+// Country code changing through cell writing
+    block ChangeCountryCode oftype CellWriter {
         at: range P2:P2;
         write: [
-            "Country Code"
+            "Country Code",
         ];
     }
-
-    // Renaming the "GDP per Capita" and "Bond Issuance Share" columns through the instructions
-    block HeaderRenamer oftype CellWriter {
+// Chnaging in gdp and bond issunce share value
+    block ChangeGDPAndBond oftype CellWriter {
         at: range R2:S2;
         write: [
             "GDP per Capita",
             "Bond Issuance Share"
         ];
     }
-
-    // Data Ranging
-    block DataRangeSelector oftype CellRangeSelector {
+// Specific data selction for P2: S45
+    block DataRange oftype CellRangeSelector {
         select: range P2:S45;
     }
+// Table interpreting
 
-    // Bond_data interpretation and processing
-    block BondDataInterpreter oftype TableInterpreter {
+    block BondTableInterpreter oftype TableInterpreter {
         header: true;
         columns: [
-            "Country Code" oftype Alpha3CountryCode,
-            "Bond Issuance Share" oftype PercentageRange
+            "Country Code" oftype ISO_3166_1,
+            "Bond Issuance Share" oftype valueBetweenZeroAndOne
         ];
     }
-// For bond data loading by following the instructions
-    block BondDataLoader oftype SQLiteLoader {
-        table: "bondIssuanceData";
+// Creation of Sqlite file
+    block BondLoader oftype SQLiteLoader {
+
+        table: "bondIssuance";
         file: "country-stats.sqlite";
     }
 
-    // Gross domestic data interpretation and processing
-    block GDPDataInterpreter oftype TableInterpreter {
+// Defines the format of two column
+
+    block GDPTableInterpreter oftype TableInterpreter {
         header: true;
         columns: [
-            "Country Code" oftype Alpha3CountryCode,
-            "GDP per Capita" oftype PositiveDecimal
+            "Country Code" oftype ISO_3166_1,
+            "GDP per Capita" oftype positiveDecimal
         ];
     }
-
-    block GDPDataLoader oftype SQLiteLoader {
-        table: "gdpPerCapitaData";
+// Gdp block for per capita 
+    block GDPLoader oftype SQLiteLoader {
+        table: "gdpPerCapita";
         file: "country-stats.sqlite";
     }
-}
-// Validation step
-valuetype Alpha3CountryCode oftype text {
-    constraints: [
-        CountryCodeValidator
-    ];
-}
-constraint CountryCodeValidator oftype RegexConstraint {
-    regex: /^[A-Z]{3}$/; 
-}
 
-valuetype PositiveDecimal oftype decimal {
+}
+// Value type to avoid error 
+valuetype ISO_3166_1 oftype text {
     constraints: [
-        PositiveValueConstraint
+        ISO_3166_1_Validator
     ];
 }
-constraint PositiveValueConstraint on decimal: value > 0; 
-
-valuetype PercentageRange oftype decimal {
+// Regexconstraint to a value where it can search for A-Z value and other denominators
+constraint ISO_3166_1_Validator oftype RegexConstraint {
+    regex: /^[A-Z]{3}$/;
+}
+// Positive value validations
+valuetype positiveDecimal oftype decimal {
     constraints: [
-        ValidPercentageConstraint
+        positiveDecimalValidator
     ];
 }
-constraint ValidPercentageConstraint on decimal: value >= 0 and value <= 1; 
+constraint positiveDecimalValidator on decimal: value > 0;
+// Define the value betwwen zero and one
+valuetype valueBetweenZeroAndOne oftype decimal {
+    constraints: [
+        valueBetweenZeroAndOneValidator
+    ];
+}
+constraint valueBetweenZeroAndOneValidator on decimal: value >= 0 and value <= 1;
