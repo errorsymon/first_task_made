@@ -1,97 +1,101 @@
-// Composite blocktype to process data from an external URL
-composite blocktype FiguresExtractor {
-    property url oftype text;
+pipeline WorldbankDataProcessingPipeline {
 
-    // Input and output definitions
-    input inputData oftype None;
-    output outputData oftype Sheet;
-
-    // Pipeline: fetch data, parse Excel, select sheet and range
-    inputData
-        -> HttpFileFetcher
-        -> ExcelParser
-        -> SelectSheet
-        -> SelectRange
-        -> outputData;
-
-    // Block definitions based on the properties
-    block HttpFileFetcher oftype HttpExtractor { url: url; }
-    block ExcelParser oftype XLSXInterpreter {}
-    block SelectSheet oftype SheetPicker { sheetName: 'Figure S5.1.2'; }
-    block SelectRange oftype CellRangeSelector { select: range P2:S45; }
-}
-
-// Main pipeline for data processing
-pipeline WorldBank_Data_Processing {
-
-    // Bond issuance data processing
-    FiguresExtractor
-        -> RemoveColumnsForBondData
+    DataExtractor
+        -> XLSXFileInterpreter
+        -> SheetPicker
+        -> CountryCodeRenamer
+        -> HeaderRenamer
+        -> DataRangeSelector
         -> BondDataInterpreter
-        -> BondDataSaver;
-
-    // GDP per capita data processing
-    FiguresExtractor
-        -> RemoveColumnsForGDPData
+        -> BondDataLoader;
+        
+    DataRangeSelector
         -> GDPDataInterpreter
-        -> GDPDataSaver;
+        -> GDPDataLoader;
+
+    
+    block DataExtractor oftype HttpExtractor {
+        url: "https://thedocs.worldbank.org/en/doc/7d852628d96b9411d43e5d36d5dff941-0050062022/original/Graphs-Chapter-5-02082022.xlsx";
+    }
+
+    // Interpreting the XLSX file format
+    block XLSXFileInterpreter oftype XLSXInterpreter { }
+
+    // Selecting the relevant sheet "Figure S5.1.2"
+    block SheetPicker oftype SheetPicker {
+        sheetName: 'Figure S5.1.2';
+    }
+
+    // Renaming the "Country Code" column
+    block CountryCodeRenamer oftype CellWriter {
+        at: range P2:P2;
+        write: [
+            "Country Code"
+        ];
+    }
+
+    // Renaming the "GDP per Capita" and "Bond Issuance Share" columns through the instructions
+    block HeaderRenamer oftype CellWriter {
+        at: range R2:S2;
+        write: [
+            "GDP per Capita",
+            "Bond Issuance Share"
+        ];
+    }
+
+    // Data Ranging
+    block DataRangeSelector oftype CellRangeSelector {
+        select: range P2:S45;
+    }
+
+    // Bond_data interpretation and processing
+    block BondDataInterpreter oftype TableInterpreter {
+        header: true;
+        columns: [
+            "Country Code" oftype Alpha3CountryCode,
+            "Bond Issuance Share" oftype PercentageRange
+        ];
+    }
+// For bond data loading by following the instructions
+    block BondDataLoader oftype SQLiteLoader {
+        table: "bondIssuanceData";
+        file: "country-stats.sqlite";
+    }
+
+    // Gross domestic data interpretation and processing
+    block GDPDataInterpreter oftype TableInterpreter {
+        header: true;
+        columns: [
+            "Country Code" oftype Alpha3CountryCode,
+            "GDP per Capita" oftype PositiveDecimal
+        ];
+    }
+
+    block GDPDataLoader oftype SQLiteLoader {
+        table: "gdpPerCapitaData";
+        file: "country-stats.sqlite";
+    }
+}
+// Validation step
+valuetype Alpha3CountryCode oftype text {
+    constraints: [
+        CountryCodeValidator
+    ];
+}
+constraint CountryCodeValidator oftype RegexConstraint {
+    regex: /^[A-Z]{3}$/; 
 }
 
-// Block to fetch data from the URL
-block FiguresExtractor oftype FiguresExtractor {
-    url: "https://thedocs.worldbank.org/en/doc/7d852628d96b9411d43e5d36d5dff941-0050062022/original/Graphs-Chapter-5-02082022.xlsx";
+valuetype PositiveDecimal oftype decimal {
+    constraints: [
+        PositiveValueConstraint
+    ];
 }
+constraint PositiveValueConstraint on decimal: value > 0; 
 
-// Data cleaning block for removing unwanted columns for Bond data
-block RemoveColumnsForBondData oftype ColumnDeleter {
-   delete: [column B, column C]; // Remove columns B and C for Bond data
+valuetype PercentageRange oftype decimal {
+    constraints: [
+        ValidPercentageConstraint
+    ];
 }
-
-// Data cleaning block for removing unwanted columns for GDP data
-block RemoveColumnsForGDPData oftype ColumnDeleter {
-   delete: [column B, column D]; // Remove columns B and D for GDP data
-}
-
-// Interpreting Bond issuance data: mapping columns to appropriate data types
-block BondDataInterpreter oftype TableInterpreter {
-   header: true; // Use the first row as headers
-   columns: [
-     "Country Code" oftype CountryCodeAlpha3, // Country Code must be ISO 3166-1 alpha-3
-     "Bond Issuance Share" oftype BondShareValidator
-   ];
-}
-
-// Interpreting GDP data: mapping columns to appropriate data types
-block GDPDataInterpreter oftype TableInterpreter {
-   header: true; // Use the first row as headers
-   columns: [
-     "Country Code" oftype CountryCodeAlpha3, // Country Code must be ISO 3166-1 alpha-3
-     "GDP per Capita" oftype PositiveDecimalValidator
-   ];
-}
-
-// Validator for Bond Issuance Share: must be a decimal between 0 and 1
-valuetype BondShareValidator oftype decimal {
-    constraints: [BondShareRangeConstraint];
-}
-
-constraint BondShareRangeConstraint on decimal: value >= 0 && value <= 1;
-
-// Validator for GDP per Capita: must be a positive decimal
-valuetype PositiveDecimalValidator oftype decimal {
-    constraints: [PositiveValueConstraint];
-}
-
-constraint PositiveValueConstraint on decimal: value > 0;
-
-// Saving bond data into SQLite database
-block BondDataSaver oftype SQLiteLoader {
-    table: "bondIssuance";
-    file: "./country-stats.sqlite";
-}
-
-// Saving GDP per capita data into SQLite database
-block GDPDataSaver oftype SQLiteLoader {
-    table: "gdpPerCapita";
-    file: "./country-stats.sqlite";
-}
+constraint ValidPercentageConstraint on decimal: value >= 0 and value <= 1; 
