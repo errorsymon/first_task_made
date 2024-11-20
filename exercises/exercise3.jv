@@ -1,91 +1,103 @@
-composite blocktype DataProcessor {
+// Composite blocktype for handling file extraction and processing
+composite blocktype FiguresExtractor {
     property url oftype text;
-    input inputvalue oftype None;
-    output outputvalue oftype Sheet;
 
-    // Pipline attribute 
-    inputvalue
-        ->DataProcessor
-        ->SpreadsheetInterpreter
-        ->Sheetselector
-        ->SelectTable
-        ->outputvalue;
+    // Input and output definition
+    input inputName oftype None;
+    output outputName oftype Sheet;
 
-    // Block definitions using values from properties by name
-    block DataProcessor oftype HttpExtractor { url: url; }
-    block SpreadsheetInterpreter oftype XLSXInterpreter {}
-    block Sheetselector oftype SheetPicker { sheetName: 'Figure S5.1.2'; }
-    block SelectTable oftype CellRangeSelector { select: range P2:S45; }
+    // Defining the flow from input to output through a series of steps
+    inputName
+        -> HttpFileFetcher
+        -> ExcelFileParser
+        -> DataSheetSelector
+        -> RangeSelector
+        -> outputName;
+
+    // Block definitions referencing properties by name
+    block HttpFileFetcher oftype HttpExtractor { url: url; }
+    block ExcelFileParser oftype XLSXInterpreter {}
+    block DataSheetSelector oftype SheetPicker { sheetName: 'Figure S5.1.2'; }
+    block RangeSelector oftype CellRangeSelector { select: range P2:S45; }
 }
 
-// Original Pipline
-pipeline Worldbank_pipeline_for_made {
+// Data pipeline for processing bond issuance and GDP statistics
+pipeline WorldBank_Data_Processing {
 
-
-    DataProcessor 
-        -> DataCleaner
-        -> BondTableProcessor
+    // Steps to process bond issuance information
+    FiguresExtractor
+        -> BondColumnsCleaner
+        -> BondDataInterpreter
         -> BondDataSaver
         ;
 
-    DataProcessor 
-        -> GdpdataCleaner
-        -> GdpTableProcessor
+    // Steps to process GDP per capita information
+    FiguresExtractor
+        -> GdpColumnsCleaner
+        -> GdpDataInterpreter
         -> GdpDataSaver
         ;
-//Process data through the given url
-block DataProcessor oftype DataProcessor {
+}
+
+// Block to configure file extraction from the given URL
+block FiguresExtractor oftype FiguresExtractor {
     url: "https://thedocs.worldbank.org/en/doc/7d852628d96b9411d43e5d36d5dff941-0050062022/original/Graphs-Chapter-5-02082022.xlsx";
 }
-//Specific Data Cleaning
-block DataCleaner oftype ColumnDeleter {
-   delete: [column B, column C];
-}
-//Cleaning
-block GdpdataCleaner oftype ColumnDeleter {
-   delete: [column B, column D];
+
+// Blocks to clean up unnecessary columns from the data
+block BondColumnsCleaner oftype ColumnDeleter {
+    delete: [column B, column C]; // Removing irrelevant columns from the bond issuance data
 }
 
-
-//  Country code and insurrance sharing
-block BondTableProcessor oftype TableInterpreter {
-   header: true;
-   columns: [
-     "Country Code" oftype CountryCodeAlpha3,
-     "Bond Issuance Share" oftype RangeValidator
-   ];
-} 
-valuetype CountryCodeAlpha3 oftype text {
-    constraints: [CountryCodeAlpha3LengthConstraint];
+block GdpColumnsCleaner oftype ColumnDeleter {
+    delete: [column B, column D]; // Removing irrelevant columns from the GDP per capita data
 }
 
-constraint CountryCodeAlpha3LengthConstraint on text: value.length == 3;
+// Block to interpret bond issuance data structure
+block BondDataInterpreter oftype TableInterpreter {
+    header: true; // The first row is assumed to contain the column headers
+    columns: [
+        "Country Code" oftype CountryCodeChecker,
+        "Bond Issuance Share" oftype SharePercentageValidator
+    ];
+}
 
+// Block to interpret GDP per capita data structure
+block GdpDataInterpreter oftype TableInterpreter {
+    header: true; // The first row contains the column headers
+    columns: [
+        "Country Code" oftype CountryCodeChecker,
+        "GDP per Capita" oftype PositiveDecimalValidator
+    ];
+}
 
-//Gdp table processor
-block GdpTableProcessor oftype TableInterpreter {
-   header: false;
-   columns: [
-    "Country Code" oftype CountryCodeAlpha3,
-    "GDP Per Capita (USD)" oftype decimal,
-   ];
-} 
-//Validator
-    valuetype RangeValidator oftype decimal {
-        constraints: [RangeValidatorConstraint];
-    }
+// Data validation types to ensure correct formats
+valuetype CountryCodeChecker oftype text {
+    constraints: [Iso3166Alpha3CodeConstraint];
+}
 
-    constraint RangeValidatorConstraint on decimal: value >= 0 and value <= 1;
+constraint Iso3166Alpha3CodeConstraint on text: value.length == 3 && value.matches("^[A-Z]{3}$");
 
-//Bounded Data Saver
+valuetype SharePercentageValidator oftype decimal {
+    constraints: [ValidRangeConstraint];
+}
+
+constraint ValidRangeConstraint on decimal: value >= 0 && value <= 1;
+
+valuetype PositiveDecimalValidator oftype decimal {
+    constraints: [NonNegativeValueConstraint];
+}
+
+constraint NonNegativeValueConstraint on decimal: value > 0;
+
+// Blocks to save the cleaned data to a SQLite database
 block BondDataSaver oftype SQLiteLoader {
     table: "bondIssuance";
     file: "./country-stats.sqlite";
 }
-//GDP data saving
+
 block GdpDataSaver oftype SQLiteLoader {
     table: "gdpPerCapita";
     file: "./country-stats.sqlite";
 }
 
-}
