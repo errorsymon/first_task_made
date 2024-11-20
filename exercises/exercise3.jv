@@ -1,3 +1,4 @@
+
 composite blocktype DataProcessor {
     property url oftype text;
     input inputvalue oftype None;
@@ -49,17 +50,24 @@ block GdpdataCleaner oftype ColumnDeleter {
 
 //  Country code and insurrance sharing
 block BondTableProcessor oftype TableInterpreter {
-   header: false;
+   header: true;
    columns: [
-     "Country Code" oftype text,
+     "Country Code" oftype CountryCodeAlpha3,
      "Bond Issuance Share" oftype RangeValidator
    ];
 } 
+valuetype CountryCodeAlpha3 oftype text {
+    constraints: [CountryCodeAlpha3LengthConstraint];
+}
+
+constraint CountryCodeAlpha3LengthConstraint on text: value.length == 3;
+
+
 //Gdp table processor
 block GdpTableProcessor oftype TableInterpreter {
    header: false;
    columns: [
-    "Country Code" oftype text,
+    "Country Code" oftype CountryCodeAlpha3,
     "GDP Per Capita (USD)" oftype decimal,
    ];
 } 
@@ -72,13 +80,13 @@ block GdpTableProcessor oftype TableInterpreter {
 
 //Bounded Data Saver
 block BondDataSaver oftype SQLiteLoader {
-    table: "sustainable_bonds";
-    file: "./name_of_the_country.sqlite";
+    table: "bondIssuance";
+    file: "./country-stats.sqlite";
 }
 //GDP data saving
 block GdpDataSaver oftype SQLiteLoader {
-    table: "economic_gdp";
-    file: "./name_of_the_country.sqlite";
+    table: "gdpPerCapita";
+    file: "./country-stats.sqlite";
 }
 
 }
