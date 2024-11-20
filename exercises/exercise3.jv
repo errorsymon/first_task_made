@@ -1,0 +1,84 @@
+composite blocktype DataProcessor {
+    property url oftype text;
+    input inputvalue oftype None;
+    output outputvalue oftype Sheet;
+
+    // Pipline attribute 
+    inputvalue
+        ->DataProcessor
+        ->SpreadsheetInterpreter
+        ->Sheetselector
+        ->SelectTable
+        ->outputvalue;
+
+    // Block definitions using values from properties by name
+    block DataProcessor oftype HttpExtractor { url: url; }
+    block SpreadsheetInterpreter oftype XLSXInterpreter {}
+    block Sheetselector oftype SheetPicker { sheetName: 'Figure S5.1.2'; }
+    block SelectTable oftype CellRangeSelector { select: range P2:S45; }
+}
+
+// Original Pipline
+pipeline Worldbank_pipeline_for_made {
+
+
+    DataProcessor 
+        -> DataCleaner
+        -> BondTableProcessor
+        -> BondDataSaver
+        ;
+
+    DataProcessor 
+        -> GdpdataCleaner
+        -> GdpTableProcessor
+        -> GdpDataSaver
+        ;
+//Process data through the given url
+block DataProcessor oftype DataProcessor {
+    url: "https://thedocs.worldbank.org/en/doc/7d852628d96b9411d43e5d36d5dff941-0050062022/original/Graphs-Chapter-5-02082022.xlsx";
+}
+//Specific Data Cleaning
+block DataCleaner oftype ColumnDeleter {
+   delete: [column B, column C];
+}
+//Cleaning
+block GdpdataCleaner oftype ColumnDeleter {
+   delete: [column B, column D];
+}
+
+
+//  Country code and insurrance sharing
+block BondTableProcessor oftype TableInterpreter {
+   header: false;
+   columns: [
+     "Country Code" oftype text,
+     "Bond Issuance Share" oftype RangeValidator
+   ];
+} 
+//Gdp table processor
+block GdpTableProcessor oftype TableInterpreter {
+   header: false;
+   columns: [
+    "Country Code" oftype text,
+    "GDP Per Capita (USD)" oftype decimal,
+   ];
+} 
+//Validator
+    valuetype RangeValidator oftype decimal {
+        constraints: [RangeValidatorConstraint];
+    }
+
+    constraint RangeValidatorConstraint on decimal: value >= 0 and value <= 1;
+
+//Bounded Data Saver
+block BondDataSaver oftype SQLiteLoader {
+    table: "sustainable_bonds";
+    file: "./name_of_the_country.sqlite";
+}
+//GDP data saving
+block GdpDataSaver oftype SQLiteLoader {
+    table: "economic_gdp";
+    file: "./name_of_the_country.sqlite";
+}
+
+}
