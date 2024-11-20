@@ -1,103 +1,101 @@
-// Composite blocktype for handling file extraction and processing
-composite blocktype FiguresExtractor {
-    property url oftype text;
+pipeline WorldbankDataProcessingPipeline {
 
-    // Input and output definition
-    input inputName oftype None;
-    output outputName oftype Sheet;
-
-    // Defining the flow from input to output through a series of steps
-    inputName
-        -> HttpFileFetcher
-        -> ExcelFileParser
-        -> DataSheetSelector
-        -> RangeSelector
-        -> outputName;
-
-    // Block definitions referencing properties by name
-    block HttpFileFetcher oftype HttpExtractor { url: url; }
-    block ExcelFileParser oftype XLSXInterpreter {}
-    block DataSheetSelector oftype SheetPicker { sheetName: 'Figure S5.1.2'; }
-    block RangeSelector oftype CellRangeSelector { select: range P2:S45; }
-}
-
-// Data pipeline for processing bond issuance and GDP statistics
-pipeline WorldBank_Data_Processing {
-
-    // Steps to process bond issuance information
-    FiguresExtractor
-        -> BondColumnsCleaner
+    DataExtractor
+        -> XLSXFileInterpreter
+        -> SheetPicker
+        -> CountryCodeRenamer
+        -> HeaderRenamer
+        -> DataRangeSelector
         -> BondDataInterpreter
-        -> BondDataSaver
-        ;
+        -> BondDataLoader;
+        
+    DataRangeSelector
+        -> GDPDataInterpreter
+        -> GDPDataLoader;
 
-    // Steps to process GDP per capita information
-    FiguresExtractor
-        -> GdpColumnsCleaner
-        -> GdpDataInterpreter
-        -> GdpDataSaver
-        ;
+    
+    block DataExtractor oftype HttpExtractor {
+        url: "https://thedocs.worldbank.org/en/doc/7d852628d96b9411d43e5d36d5dff941-0050062022/original/Graphs-Chapter-5-02082022.xlsx";
+    }
+
+    // Interpreting the XLSX file format
+    block XLSXFileInterpreter oftype XLSXInterpreter { }
+
+    // Selecting the relevant sheet "Figure S5.1.2"
+    block SheetPicker oftype SheetPicker {
+        sheetName: 'Figure S5.1.2';
+    }
+
+    // Renaming the "Country Code" column
+    block CountryCodeRenamer oftype CellWriter {
+        at: range P2:P2;
+        write: [
+            "Country Code"
+        ];
+    }
+
+    // Renaming the "GDP per Capita" and "Bond Issuance Share" columns through the instructions
+    block HeaderRenamer oftype CellWriter {
+        at: range R2:S2;
+        write: [
+            "GDP per Capita",
+            "Bond Issuance Share"
+        ];
+    }
+
+    // Data Ranging
+    block DataRangeSelector oftype CellRangeSelector {
+        select: range P2:S45;
+    }
+
+    // Bond_data interpretation and processing
+    block BondDataInterpreter oftype TableInterpreter {
+        header: true;
+        columns: [
+            "Country Code" oftype Alpha3CountryCode,
+            "Bond Issuance Share" oftype PercentageRange
+        ];
+    }
+// For bond data loading by following the instructions
+    block BondDataLoader oftype SQLiteLoader {
+        table: "bondIssuanceData";
+        file: "country-stats.sqlite";
+    }
+
+    // Gross domestic data interpretation and processing
+    block GDPDataInterpreter oftype TableInterpreter {
+        header: true;
+        columns: [
+            "Country Code" oftype Alpha3CountryCode,
+            "GDP per Capita" oftype PositiveDecimal
+        ];
+    }
+
+    block GDPDataLoader oftype SQLiteLoader {
+        table: "gdpPerCapitaData";
+        file: "country-stats.sqlite";
+    }
 }
-
-// Block to configure file extraction from the given URL
-block FiguresExtractor oftype FiguresExtractor {
-    url: "https://thedocs.worldbank.org/en/doc/7d852628d96b9411d43e5d36d5dff941-0050062022/original/Graphs-Chapter-5-02082022.xlsx";
-}
-
-// Blocks to clean up unnecessary columns from the data
-block BondColumnsCleaner oftype ColumnDeleter {
-    delete: [column B, column C]; // Removing irrelevant columns from the bond issuance data
-}
-
-block GdpColumnsCleaner oftype ColumnDeleter {
-    delete: [column B, column D]; // Removing irrelevant columns from the GDP per capita data
-}
-
-// Block to interpret bond issuance data structure
-block BondDataInterpreter oftype TableInterpreter {
-    header: true; // The first row is assumed to contain the column headers
-    columns: [
-        "Country Code" oftype CountryCodeChecker,
-        "Bond Issuance Share" oftype SharePercentageValidator
+// Validation step
+valuetype Alpha3CountryCode oftype text {
+    constraints: [
+        CountryCodeValidator
     ];
 }
+constraint CountryCodeValidator oftype RegexConstraint {
+    regex: /^[A-Z]{3}$/; 
+}
 
-// Block to interpret GDP per capita data structure
-block GdpDataInterpreter oftype TableInterpreter {
-    header: true; // The first row contains the column headers
-    columns: [
-        "Country Code" oftype CountryCodeChecker,
-        "GDP per Capita" oftype PositiveDecimalValidator
+valuetype PositiveDecimal oftype decimal {
+    constraints: [
+        PositiveValueConstraint
     ];
 }
+constraint PositiveValueConstraint on decimal: value > 0; 
 
-// Data validation types to ensure correct formats
-valuetype CountryCodeChecker oftype text {
-    constraints: [Iso3166Alpha3CodeConstraint];
+valuetype PercentageRange oftype decimal {
+    constraints: [
+        ValidPercentageConstraint
+    ];
 }
-
-constraint Iso3166Alpha3CodeConstraint on text: value.length == 3 && value.matches("^[A-Z]{3}$");
-
-valuetype SharePercentageValidator oftype decimal {
-    constraints: [ValidRangeConstraint];
-}
-
-constraint ValidRangeConstraint on decimal: value >= 0 && value <= 1;
-
-valuetype PositiveDecimalValidator oftype decimal {
-    constraints: [NonNegativeValueConstraint];
-}
-
-constraint NonNegativeValueConstraint on decimal: value > 0;
-
-// Blocks to save the cleaned data to a SQLite database
-block BondDataSaver oftype SQLiteLoader {
-    table: "bondIssuance";
-    file: "./country-stats.sqlite";
-}
-
-block GdpDataSaver oftype SQLiteLoader {
-    table: "gdpPerCapita";
-    file: "./country-stats.sqlite";
-}
-
+constraint ValidPercentageConstraint on decimal: value >= 0 and value <= 1; 
