@@ -1,8 +1,6 @@
 import pandas as pd
 import sqlite3
-import os
 from contextlib import closing
-
 
 def load_datasets():
     """
@@ -12,13 +10,17 @@ def load_datasets():
     gdp_data_file = "https://raw.githubusercontent.com/errorsymon/Data/d710147cfb374060422bd86a1889d33e54fa3f2b/API_NY.GDP.MKTP.CD_DS2_en_csv_v2_9865.csv"
     country_metadata_file = "https://raw.githubusercontent.com/errorsymon/Data/d710147cfb374060422bd86a1889d33e54fa3f2b/Metadata_Country_API_NY.GDP.MKTP.CD_DS2_en_csv_v2_9865.csv"
     indicator_metadata_file = "https://raw.githubusercontent.com/errorsymon/Data/b906c2e79b027e4ad1df257277ede4b8f9884ff2/Metadata_Indicator_API_NY.GDP.MKTP.CD_DS2_en_csv_v2_9865.csv"
+    indicator_metadata_file2 = "https://raw.githubusercontent.com/errorsymon/Data/refs/heads/main/API_USA_DS2_en_csv_v2_3173.csv"
+    indicator_metadata_file3 = "https://raw.githubusercontent.com/errorsymon/Data/refs/heads/main/brazil.csv"
     
     # Load datasets
     gdp_data = pd.read_csv(gdp_data_file, skiprows=4, on_bad_lines='skip')
     country_metadata = pd.read_csv(country_metadata_file)
     indicator_metadata = pd.read_csv(indicator_metadata_file)
-    
-    return gdp_data, country_metadata, indicator_metadata
+    indicators_gdp_usa = pd.read_csv(indicator_metadata_file2)
+    indicators_gdp_bra = pd.read_csv(indicator_metadata_file3)
+
+    return gdp_data, country_metadata, indicator_metadata, indicators_gdp_bra, indicators_gdp_usa
 
 def preprocess_gdp_data(gdp_data):
     """
@@ -38,6 +40,14 @@ def preprocess_gdp_data(gdp_data):
     
     return gdp_data_melted
 
+def preprocess_usa_brazil_data(indicators_gdp_usa):
+    """
+    Preprocess the USA and Brazil GDP data: Remove first 5 rows from the data.
+    """
+    # Skip the first 5 rows
+    df = indicators_gdp_usa.iloc[5:].reset_index(drop=True)
+    return df
+
 def preprocess_country_metadata(country_metadata):
     """
     Preprocess the country metadata: Keep relevant columns.
@@ -55,7 +65,7 @@ def merge_data(gdp_data, country_metadata):
 
 def main():
     # Load datasets
-    gdp_data, country_metadata, _ = load_datasets()
+    gdp_data, country_metadata, indicator_metadata, indicators_gdp_bra, indicators_gdp_usa = load_datasets()
     
     # Preprocess datasets
     gdp_data_cleaned = preprocess_gdp_data(gdp_data)
@@ -66,7 +76,7 @@ def main():
     
     # Debugging Step 1: Print a portion of the merged data to check the country names
     print("\nPreview of merged data with country names:")
-    print(merged_df[['Country Name', 'Country Code']].head(20))
+    print(merged_df[['Country Name', 'Country Code']].head())
     
     # Remove leading/trailing spaces from country names and codes
     merged_df['Country Name'] = merged_df['Country Name'].str.strip()
@@ -74,8 +84,8 @@ def main():
     
     # Debugging Step 2: Ensure 'Brazil' and 'United States' exist in the dataset
     print("\nChecking if Brazil and United States are in the dataset (before filtering):")
-    print(merged_df[merged_df['Country Name'].str.contains('brazil', case=False)])
-    print(merged_df[merged_df['Country Name'].str.contains('united states', case=False)])
+    print(merged_df[merged_df['Country Name'].str.contains('brazil', case=False)].head())
+    print(merged_df[merged_df['Country Name'].str.contains('united states', case=False)].head())
     
     # Apply both country name and country code filtering (case insensitive)
     countries_of_interest = ['brazil', 'united states']
@@ -86,7 +96,7 @@ def main():
 
     # Debugging Step 3: Check filtered DataFrame
     print("\nFiltered DataFrame (should include Brazil and USA):")
-    print(filtered_df[['Country Name', 'Country Code']].head(20))
+    print(filtered_df[['Country Name', 'Country Code']].head())
     
     # Create an SQLite database connection
     conn = sqlite3.connect('gdp_brazil_usa.db')
@@ -104,13 +114,13 @@ def main():
     
     # Display the first few rows of the queried DataFrame to confirm
     print("Queried DataFrame from SQLite:")
-    print(queried_df)
+    print(queried_df.head())
     
     # Close the connection
     conn.close()
     
     # Save the filtered DataFrame to a CSV file
-    output_csv = 'gdp_brazil_usa.csv'
+    output_csv = r'D:\jayvee-0.6.4-alpha (1)\jayvee-0.6.4-alpha\example\gdp_brazil_usa.csv'
     filtered_df.to_csv(output_csv, index=False, encoding='utf-8-sig')
     print(f"Filtered dataset saved as {output_csv}")
 
