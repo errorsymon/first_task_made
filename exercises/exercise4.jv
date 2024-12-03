@@ -1,116 +1,106 @@
-pipeline SensorTemperatureDataPipeline {
 
-    // Primary extractor for Data
-    SensorDataExtractor
-        -> SensorArchiveInterpreter
-        -> SensorCSVSelector
-        -> SensorFileReader
-        -> SensorCSVProcessor;
-
-    // Phase of Data Transmiter
-    SensorHeaderUpdater
-        -> SensorTempHeaderUpdater
-        -> SensorTableParser
-        -> SensorTempCelsiusToFahrenheit
-        -> SensorBatteryTempCelsiusToFahrenheit;
-
-    // Database loading
-    SensorDatabaseLoader;
+pipeline Temp_Data {
+// Pipeline blocks define
+    JaveeDataFetcher
+        -> ZipFileInterpreter
+        -> TargetFileSelector
+        -> FileContentReader
+        -> CSVFileProcessor
+        -> ColumnNameModifier
+        -> TempLabelling
+        -> TableLabelling
+        -> CelsiusToFahrenheitConverter
+        -> ConvertBatteryTempToFahrenheit
+        -> DataTableSaver;
+// File fetcher from URL
+    block JaveeDataFetcher oftype HttpExtractor {
+        url: "https://www.mowesta.com/data/measure/mowesta-dataset-20221107.zip";
+    }
+// Archeive Zip
+    block ZipFileInterpreter oftype ArchiveInterpreter {
+        archiveType: "zip";
+    }
+// Target Data Selector
+    block TargetFileSelector oftype FilePicker {
+        path: './data.csv';
+    }
+// File content accepter 
+    block FileContentReader oftype TextFileInterpreter { }
+// CSV File processing phase
+    block CSVFileProcessor oftype CSVInterpreter {
+        delimiter: ";";
+    }
+// Name modification of the column 
+    block ColumnNameModifier oftype CellWriter {
+        at: range A1:E1;
+        write: [
+            "id",
+            "producer",
+            "model",
+            "month",
+            "temperature"
+        ];
+    }
+// Labelling the table with the specific cell
+    block TempLabelling oftype CellWriter {
+        at: cell J1;
+        write: [
+            "battery_temperature"
+        ];
+    }
+// Labelling all the table with the type of the content
+    block TableLabelling oftype TableInterpreter {
+        header: true;
+        columns: [
+            "id" oftype PositiveIntegerType,
+            "producer" oftype text,
+            "model" oftype text,
+            "month" oftype MonthType,
+            "temperature" oftype decimal,
+            "battery_temperature" oftype decimal
+        ];
+    }
+// Conversion of the data celsius to F
+    transform CelsiusToFahrenheitTransposer {
+        from Celsius oftype decimal;
+        to Fahrenheit oftype decimal;
+        Fahrenheit: (Celsius * 9/5) + 32;
+    }
+// Defining the input column 
+    block CelsiusToFahrenheitConverter oftype TableTransformer {
+        inputColumns: [
+            'temperature'
+        ];
+        outputColumn: 'temperature';
+        uses: CelsiusToFahrenheitTransposer;
+    }
+// Battery temparature conversion
+    block ConvertBatteryTempToFahrenheit oftype TableTransformer {
+        inputColumns: [
+            'battery_temperature'
+        ];
+        outputColumn: 'battery_temperature';
+        uses: CelsiusToFahrenheitTransposer;
+    }
+// Saving the data on the sqlite file
+    block DataTableSaver oftype SQLiteLoader {
+        table: 'temperatures';
+        file: 'temperatures.sqlite';
+    }
 }
-
-// Initial Handling of Data Extraction
-block SensorDataExtractor oftype WebDataFetcher {
-    endpoint: "https://www.mowesta.com/data/measure/mowesta-dataset-20221107.zip";
-}
-// Format define
-block SensorArchiveInterpreter oftype ZipFileHandler {
-    format: "zip";
-}
-// File pathy
-block SensorCSVSelector oftype FileSelector {
-    filePath: './data.csv';
-}
-// File reader
-block SensorFileReader oftype TextFileReader { }
-// Separator
-block SensorCSVProcessor oftype CSVHandler {
-    separator: ";";
-}
-
-// Header
-block SensorHeaderUpdater oftype SpreadsheetEditor {
-    location: range A1:E1;
-    content: [
-        "device_id",
-        "manufacturer",
-        "device_model",
-        "data_month",
-        "temperature_reading"
-    ];
-}
-// Spreadsheet edit
-block SensorTempHeaderUpdater oftype SpreadsheetEditor {
-    location: cell J1;
-    content: [
-        "battery_temp_reading"
-    ];
-}
-
-// Data Type Validation Phase
-block SensorTableParser oftype DataTableInterpreter {
-    includeHeader: true;
-    schema: [
-        "device_id" oftype NonNegativeIntegerType,
-        "manufacturer" oftype string,
-        "device_model" oftype string,
-        "data_month" oftype MonthRangeType,
-        "temperature_reading" oftype decimal,
-        "battery_temp_reading" oftype decimal
-    ];
-}
-
-// Automated transmission
-transform CelsiusToFahrenheit {
-    input CelsiusValue oftype decimal;
-    output FahrenheitValue oftype decimal;
-    FahrenheitValue: (CelsiusValue * 9/5) + 32;
-}
-// Input to output temp
-block SensorTempCelsiusToFahrenheit oftype DataTransformer {
-    inputFields: [
-        'temperature_reading'
-    ];
-    outputField: 'temperature_reading';
-    transformation: CelsiusToFahrenheit;
-}
-// Transform cel to fah
-block SensorBatteryTempCelsiusToFahrenheit oftype DataTransformer {
-    inputFields: [
-        'battery_temp_reading'
-    ];
-    outputField: 'battery_temp_reading';
-    transformation: CelsiusToFahrenheit;
-}
-
-// Data Loading Phase
-block SensorDatabaseLoader oftype SQLiteDatabaseSaver {
-    targetTable: 'temperature_data';
-    databaseFile: 'sensor_data.sqlite';
-}
-
-// Value type
-constraint PositiveIntegerConstraint on integer: value > 0;
-
-valuetype NonNegativeIntegerType oftype integer {
+// Defining the positve value for the constraint with the value
+constraint PositiveConstraint on integer: value > 0;
+// Defining the value for the type of attribute
+valuetype PositiveIntegerType oftype integer {
     constraints: [
-        PositiveIntegerConstraint
+        PositiveConstraint
     ];
 }
-// Constraint
-constraint ValidMonthConstraint on integer: value >= 1 and value <= 12;
-// Month Range
-valuetype MonthRangeType oftype integer {
+// Evaluating the month constraint with the value
+constraint MonthConstraint on integer: value >= 1 and value <= 12;
+// Defining the month value with constraints
+valuetype MonthType oftype integer {
     constraints: [
-        ValidMonthConstraint
+        MonthConstraint
     ];
 }
