@@ -1,0 +1,116 @@
+pipeline SensorTemperatureDataPipeline {
+
+    // Primary extractor for Data
+    SensorDataExtractor
+        -> SensorArchiveInterpreter
+        -> SensorCSVSelector
+        -> SensorFileReader
+        -> SensorCSVProcessor;
+
+    // Phase of Data Transmiter
+    SensorHeaderUpdater
+        -> SensorTempHeaderUpdater
+        -> SensorTableParser
+        -> SensorTempCelsiusToFahrenheit
+        -> SensorBatteryTempCelsiusToFahrenheit;
+
+    // Database loading
+    SensorDatabaseLoader;
+}
+
+// Initial Handling of Data Extraction
+block SensorDataExtractor oftype WebDataFetcher {
+    endpoint: "https://www.mowesta.com/data/measure/mowesta-dataset-20221107.zip";
+}
+// Format define
+block SensorArchiveInterpreter oftype ZipFileHandler {
+    format: "zip";
+}
+// File pathy
+block SensorCSVSelector oftype FileSelector {
+    filePath: './data.csv';
+}
+// File reader
+block SensorFileReader oftype TextFileReader { }
+// Separator
+block SensorCSVProcessor oftype CSVHandler {
+    separator: ";";
+}
+
+// Header
+block SensorHeaderUpdater oftype SpreadsheetEditor {
+    location: range A1:E1;
+    content: [
+        "device_id",
+        "manufacturer",
+        "device_model",
+        "data_month",
+        "temperature_reading"
+    ];
+}
+// Spreadsheet edit
+block SensorTempHeaderUpdater oftype SpreadsheetEditor {
+    location: cell J1;
+    content: [
+        "battery_temp_reading"
+    ];
+}
+
+// Data Type Validation Phase
+block SensorTableParser oftype DataTableInterpreter {
+    includeHeader: true;
+    schema: [
+        "device_id" oftype NonNegativeIntegerType,
+        "manufacturer" oftype string,
+        "device_model" oftype string,
+        "data_month" oftype MonthRangeType,
+        "temperature_reading" oftype decimal,
+        "battery_temp_reading" oftype decimal
+    ];
+}
+
+// Automated transmission
+transform CelsiusToFahrenheit {
+    input CelsiusValue oftype decimal;
+    output FahrenheitValue oftype decimal;
+    FahrenheitValue: (CelsiusValue * 9/5) + 32;
+}
+// Input to output temp
+block SensorTempCelsiusToFahrenheit oftype DataTransformer {
+    inputFields: [
+        'temperature_reading'
+    ];
+    outputField: 'temperature_reading';
+    transformation: CelsiusToFahrenheit;
+}
+// Transform cel to fah
+block SensorBatteryTempCelsiusToFahrenheit oftype DataTransformer {
+    inputFields: [
+        'battery_temp_reading'
+    ];
+    outputField: 'battery_temp_reading';
+    transformation: CelsiusToFahrenheit;
+}
+
+// Data Loading Phase
+block SensorDatabaseLoader oftype SQLiteDatabaseSaver {
+    targetTable: 'temperature_data';
+    databaseFile: 'sensor_data.sqlite';
+}
+
+// Value type
+constraint PositiveIntegerConstraint on integer: value > 0;
+
+valuetype NonNegativeIntegerType oftype integer {
+    constraints: [
+        PositiveIntegerConstraint
+    ];
+}
+// Constraint
+constraint ValidMonthConstraint on integer: value >= 1 and value <= 12;
+// Month Range
+valuetype MonthRangeType oftype integer {
+    constraints: [
+        ValidMonthConstraint
+    ];
+}
