@@ -14,7 +14,7 @@ mkdir -p "$OUTPUT_DIR"
 
 # Run the pipeline
 echo "Running the data pipeline..."
-python main.py  # Use 'python' for better Windows compatibility
+python pipline.py  # Use 'python' for better Windows compatibility
 
 # Check if the expected output files are created
 echo "Checking if output files are generated..."
