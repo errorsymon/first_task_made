@@ -1,0 +1,42 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches:
+      - main  # Trigger the workflow on every push to the main branch
+
+jobs:
+  run-tests:
+    runs-on: ubuntu-latest  # Use the latest Ubuntu environment
+
+    steps:
+      # Step 1: Check out the repository code
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      # Step 2: Set up Python environment
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'  # Replace with the Python version your project requires
+
+      # Step 3: Install dependencies (if any)
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          # Add commands to install your project's dependencies
+          # Example: pip install -r requirements.txt
+
+      # Step 4: Run the test script
+      - name: Run Tests
+        run: |
+          chmod +x tests.sh  # Ensure the script is executable
+          ./tests.sh
+
+      # Step 5: (Optional) Archive logs for debugging
+      - name: Archive Test Outputs
+        if: failure()  # Only archive if a step fails
+        uses: actions/upload-artifact@v3
+        with:
+          name: tests-outputs
+          path: tests_outputs/
