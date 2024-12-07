@@ -30,4 +30,4 @@ jobs:
       run: chmod +x tests.sh  # Ensure that tests.sh is executable
 
     - name: Run tests
-      run: ./tests.sh  # Run the tests.sh script
+      run: .project/tests.sh  # Run the tests.sh script
