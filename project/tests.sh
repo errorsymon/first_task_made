@@ -5,5 +5,5 @@
 # cd /path/to/your/tests
 
 # Run pytest and point it to the tests.py file (if necessary, use the path to tests.py)
-pytest --maxfail=1 --disable-warnings -q tests.py
+pytest --maxfail=1 --disable-warnings -q ./project/tests.py
 
