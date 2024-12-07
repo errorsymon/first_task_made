@@ -30,7 +30,7 @@ jobs:
       run: ls -R  # List all files for debugging purposes
 
     - name: Make tests.sh executable
-      run: chmod +x tests.sh  # Make tests.sh file executable
+      run: chmod +x .project/tests.sh  # Make tests.sh file executable
 
     - name: Run tests
-      run: ./tests.sh  # Run the tests.sh script
+      run: ./project/tests.sh  # Run the tests.sh script
