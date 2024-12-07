@@ -33,9 +33,9 @@ jobs:
       run: |
         echo "Checking if tests.sh exists"
         ls -l tests.sh  # Check if tests.sh is there
-        chmod +x tests.sh  # Make tests.sh executable
+        chmod +x ./project/tests.sh  # Make tests.sh executable
 
     - name: Run tests
       run: |
         echo "Running tests..."
-        ./tests.sh  # Run the tests.sh script
+        ./project/tests.sh  # Run the tests.sh script
