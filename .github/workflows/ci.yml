@@ -32,10 +32,10 @@ jobs:
     - name: Ensure tests.sh exists and is executable
       run: |
         echo "Checking if tests.sh exists"
-        ls -l tests.sh  # Check if tests.sh is there
-        chmod +x ./project/tests.sh  # Make tests.sh executable
+        ls -l project/tests.sh  # Check if tests.sh is in the 'project' folder
+        chmod +x project/tests.sh  # Make tests.sh executable
 
     - name: Run tests
       run: |
         echo "Running tests..."
-        ./project/tests.sh  # Run the tests.sh script
+        ./project/tests.sh  # Run the tests.sh script from the 'project' folder
