@@ -1,63 +1,79 @@
-#!/bin/bash
+import pytest
+import pandas as pd
+from main import (
+    load_datasets,
+    preprocess_gdp_data,
+    preprocess_country_metadata,
+    merge_data,
+    calculate_gdp_growth_rate
+)
 
-# Exit immediately if a command exits with a non-zero status
-set -e
+# Mock data for testing
+@pytest.fixture
+def mock_gdp_data():
+    return pd.DataFrame({
+        "Country Name": ["United States", "Brazil", "India"],
+        "Country Code": ["USA", "BRA", "IND"],
+        "1989": [1000, 500, 200],
+        "1990": [1100, 600, 300],
+        "1991": [1200, None, 400],
+    })
 
-# Define output directory and expected files
-OUTPUT_DIR="$(pwd)/test_outputs"
-FINAL_DATA_FILE="${OUTPUT_DIR}/Final_Data.csv"
-INDICATOR_DATA_FILE="${OUTPUT_DIR}/Indicator_data.csv"
-IMPORTANT_FEATURES_FILE="${OUTPUT_DIR}/Important_Features.csv"
+@pytest.fixture
+def mock_country_metadata():
+    return pd.DataFrame({
+        "Country Code": ["USA", "BRA", "IND"],
+        "Region": ["North America", "Latin America", "Asia"],
+        "IncomeGroup": ["High income", "Upper middle income", "Lower middle income"]
+    })
 
-# Ensure the output directory exists
-mkdir -p "$OUTPUT_DIR"
+@pytest.fixture
+def mock_filtered_gdp():
+    return pd.DataFrame({
+        "Country Name": ["Brazil", "Brazil", "United States", "United States"],
+        "Country Code": ["BRA", "BRA", "USA", "USA"],
+        "Year": [1989, 1990, 1989, 1990],
+        "GDP": [500, 600, 1000, 1100]
+    })
 
-# Run the pipeline
-echo "Running the data pipeline..."
-python pipline.py  # Use 'python' for better Windows compatibility
+# Test loading datasets
+def test_load_datasets():
+    gdp_data, country_metadata, indicator_metadata, indicators_gdp_usa, indicators_gdp_bra = load_datasets()
+    assert isinstance(gdp_data, pd.DataFrame)
+    assert isinstance(country_metadata, pd.DataFrame)
+    assert isinstance(indicator_metadata, pd.DataFrame)
+    assert isinstance(indicators_gdp_usa, pd.DataFrame)
+    assert isinstance(indicators_gdp_bra, pd.DataFrame)
 
-# Check if the expected output files are created
-echo "Checking if output files are generated..."
+# Test preprocessing GDP data
+def test_preprocess_gdp_data(mock_gdp_data):
+    gdp_data_cleaned = preprocess_gdp_data(mock_gdp_data)
+    assert "Year" in gdp_data_cleaned.columns
+    assert "GDP" in gdp_data_cleaned.columns
+    assert gdp_data_cleaned['Country Code'].nunique() == 1  # Only USA data is expected after filtering
 
-if [[ -f "$FINAL_DATA_FILE" ]]; then
-    echo "Final data file exists: $FINAL_DATA_FILE"
-else
-    echo "Error: Final data file does not exist!" >&2
-    exit 1
-fi
+# Test preprocessing country metadata
+def test_preprocess_country_metadata(mock_country_metadata):
+    country_metadata_cleaned = preprocess_country_metadata(mock_country_metadata)
+    assert set(country_metadata_cleaned.columns) == {"Country Code", "Region", "IncomeGroup"}
+    assert len(country_metadata_cleaned) == 3
 
-if [[ -f "$INDICATOR_DATA_FILE" ]]; then
-    echo "Indicator data file exists: $INDICATOR_DATA_FILE"
-else
-    echo "Error: Indicator data file does not exist!" >&2
-    exit 1
-fi
+# Test merging data
+def test_merge_data(mock_gdp_data, mock_country_metadata):
+    gdp_data_cleaned = preprocess_gdp_data(mock_gdp_data)
+    country_metadata_cleaned = preprocess_country_metadata(mock_country_metadata)
+    merged_df = merge_data(gdp_data_cleaned, country_metadata_cleaned)
+    assert "Region" in merged_df.columns
+    assert "IncomeGroup" in merged_df.columns
+    assert len(merged_df) == len(gdp_data_cleaned)
 
-if [[ -f "$IMPORTANT_FEATURES_FILE" ]]; then
-    echo "Important features file exists: $IMPORTANT_FEATURES_FILE"
-else
-    echo "Error: Important features file does not exist!" >&2
-    exit 1
-fi
+# Test calculating GDP growth rate
+def test_calculate_gdp_growth_rate(mock_filtered_gdp):
+    result = calculate_gdp_growth_rate(mock_filtered_gdp)
+    assert "GDP Growth Rate" in result.columns
+    assert not result["GDP Growth Rate"].isnull().all()  # Ensure some growth rates are calculated
+    assert result.iloc[1]["GDP Growth Rate"] == pytest.approx(20.0, rel=1e-2)  # Example check for Brazil (1989 to 1990)
 
-# Perform basic structure checks
-echo "Performing basic checks on the final data file..."
-head -n 5 "$FINAL_DATA_FILE" || {
-    echo "Error: Unable to read $FINAL_DATA_FILE" >&2
-    exit 1
-}
-
-echo "Performing basic checks on the indicator data file..."
-head -n 5 "$INDICATOR_DATA_FILE" || {
-    echo "Error: Unable to read $INDICATOR_DATA_FILE" >&2
-    exit 1
-}
-
-echo "Performing basic checks on the important features file..."
-head -n 5 "$IMPORTANT_FEATURES_FILE" || {
-    echo "Error: Unable to read $IMPORTANT_FEATURES_FILE" >&2
-    exit 1
-}
-
-# Print success message
-echo "All tests passed successfully!"
+# Run tests with pytest
+if __name__ == "__main__":
+    pytest.main()
