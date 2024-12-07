@@ -1,6 +1,6 @@
 import pytest
 import pandas as pd
-from main import (
+from pipeline import (
     load_datasets,
     preprocess_gdp_data,
     preprocess_country_metadata,
