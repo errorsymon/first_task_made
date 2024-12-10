@@ -71,6 +71,14 @@ pipeline TransitDataPipeline {
         upperBound: 90;
         upperBoundInclusive: true;
     }
+
+    constraint LongitudeRange oftype RangeConstraint {
+        lowerBound: -180;
+        lowerBoundInclusive: true;
+        upperBound: 180;
+        upperBoundInclusive: true;
+    }
+
     valuetype ZoneID oftype integer {
         constraints: [
             ZoneRange
