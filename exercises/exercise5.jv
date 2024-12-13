@@ -1,25 +1,25 @@
-pipeline GTFS {
+pipeline TransitDataPipeline {
 
-    block GTFSDataExtractor oftype HttpExtractor {
+    block TransitDataDownloader oftype HttpExtractor {
         url: "https://gtfs.rhoenenergie-bus.de/GTFS.zip";
     }
 
-    block GTFSDataInterpreter oftype ArchiveInterpreter {
+    block TransitDataProcessor oftype ArchiveInterpreter {
         archiveType: "zip";
     }
 
-    block GTFSFilePicker oftype FilePicker {
+    block TransitDataSelector oftype FilePicker {
         path: "/stops.txt";
     }
 
-    block GTFSTextFileInterpreter oftype TextFileInterpreter {}
+    block TransitDataTextInterpreter oftype TextFileInterpreter {}
 
-    block GTFSCSVInterpreter oftype CSVInterpreter {
+    block TransitDataCSVParser oftype CSVInterpreter {
         enclosing: '"';
         enclosingEscape: '"';
     }
 
-    block GTFSTableInterpreter oftype TableInterpreter {
+    block TransitDataValidator oftype TableInterpreter {
         header: true;
         columns: [
             "stop_id" oftype BIGINT, 
@@ -30,12 +30,10 @@ pipeline GTFS {
         ];
     }
 
-    block GTFSDataLoader oftype SQLiteLoader {
+    block TransitDataLoader oftype SQLiteLoader {
         table: "stops";
         file: "gtfs.sqlite";
     }
-
-    // Defining custom value types and constraints
 
     valuetype GermanText oftype text {
         constraints: [
@@ -81,13 +79,11 @@ pipeline GTFS {
         lowerBound: 1925;
         upperBound: 1925;
     }
-
-    
-    GTFSDataExtractor 
-    -> GTFSDataInterpreter 
-    -> GTFSFilePicker
-    -> GTFSTextFileInterpreter
-    -> GTFSCSVInterpreter
-    -> GTFSTableInterpreter
-    -> GTFSDataLoader;
+    TransitDataDownloader 
+    -> TransitDataProcessor 
+    -> TransitDataSelector
+    -> TransitDataTextInterpreter
+    -> TransitDataCSVParser
+    -> TransitDataValidator
+    -> TransitDataLoader;
 }
