@@ -1,5 +1,14 @@
 pipeline TransitDataPipeline {
 
+    // Defining the pipeline flow
+    TransitDataDownloader 
+    -> TransitDataProcessor 
+    -> TransitDataSelector
+    -> TransitDataTextInterpreter
+    -> TransitDataCSVParser
+    -> TransitDataValidator
+    -> TransitDataLoader;
+
     block TransitDataDownloader oftype HttpExtractor {
         url: "https://gtfs.rhoenenergie-bus.de/GTFS.zip";
     }
@@ -22,11 +31,11 @@ pipeline TransitDataPipeline {
     block TransitDataValidator oftype TableInterpreter {
         header: true;
         columns: [
-            "stop_id" oftype BIGINT, 
-            "stop_name" oftype GermanText, 
-            "stop_lat" oftype Latitude, 
-            "stop_lon" oftype Longitude, 
-            "zone_id" oftype ZoneID
+            "stop_id" oftype integer, 
+            "stop_name" oftype GermanUmlauts, 
+            "stop_lat" oftype BetweenPlusMinusNinety, 
+            "stop_lon" oftype BetweenPlusMinusNinety, 
+            "zone_id" oftype ValidZone
         ];
     }
 
@@ -35,55 +44,37 @@ pipeline TransitDataPipeline {
         file: "gtfs.sqlite";
     }
 
-    valuetype GermanText oftype text {
+    // Defining custom value types and constraints
+
+    valuetype GermanUmlauts oftype text {
         constraints: [
-            GermanUmlautsConstraint
+            TransitDataGermanUmlautsConstraint
         ];
     }
 
-    constraint GermanUmlautsConstraint on text: value matches /^[A-Za-z0-9äöüÄÖÜß\s\-\.(),]*$/;
+    constraint TransitDataGermanUmlautsConstraint on text: value matches /^[A-Za-z0-9äöüÄÖÜß\s\-\.(),]*$/;
 
-    valuetype Latitude oftype decimal {
+    valuetype BetweenPlusMinusNinety oftype decimal {
         constraints: [
-            LatitudeRange
+            TransitDataBetweenPlusMinusNinetyConstraint
         ];
     }
 
-    valuetype Longitude oftype decimal {
-        constraints: [
-            LongitudeRange
-        ];
-    }
-
-    constraint LatitudeRange oftype RangeConstraint {
+    constraint TransitDataBetweenPlusMinusNinetyConstraint oftype RangeConstraint {
         lowerBound: -90;
         lowerBoundInclusive: true;
         upperBound: 90;
         upperBoundInclusive: true;
     }
 
-    constraint LongitudeRange oftype RangeConstraint {
-        lowerBound: -90;
-        lowerBoundInclusive: true;
-        upperBound: 90;
-        upperBoundInclusive: true;
-    }
-
-    valuetype ZoneID oftype integer {
+    valuetype ValidZone oftype integer {
         constraints: [
-            ZoneRange
+            TransitDataValidZoneConstraint
         ];
     }
 
-    constraint ZoneRange oftype RangeConstraint {
+    constraint TransitDataValidZoneConstraint oftype RangeConstraint {
         lowerBound: 1925;
-        upperBound: 1925;
+        upperBound: 1925; // Ensure that only the zone 1925 is selected
     }
-    TransitDataDownloader 
-    -> TransitDataProcessor 
-    -> TransitDataSelector
-    -> TransitDataTextInterpreter
-    -> TransitDataCSVParser
-    -> TransitDataValidator
-    -> TransitDataLoader;
 }
