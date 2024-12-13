@@ -1,28 +1,28 @@
-pipeline TransitDataPipeline {
+pipeline GTFS {
 
-    block TransitDataDownloader oftype HttpExtractor {
+    block GTFSDataExtractor oftype HttpExtractor {
         url: "https://gtfs.rhoenenergie-bus.de/GTFS.zip";
     }
 
-    block TransitDataProcessor oftype ArchiveInterpreter {
+    block GTFSDataInterpreter oftype ArchiveInterpreter {
         archiveType: "zip";
     }
 
-    block TransitDataSelector oftype FilePicker {
+    block GTFSFilePicker oftype FilePicker {
         path: "/stops.txt";
     }
 
-    block TransitDataTextInterpreter oftype TextFileInterpreter {}
+    block GTFSTextFileInterpreter oftype TextFileInterpreter {}
 
-    block TransitDataCSVParser oftype CSVInterpreter {
+    block GTFSCSVInterpreter oftype CSVInterpreter {
         enclosing: '"';
         enclosingEscape: '"';
     }
 
-    block TransitDataValidator oftype TableInterpreter {
+    block GTFSTableInterpreter oftype TableInterpreter {
         header: true;
         columns: [
-            "stop_id" oftype integer, 
+            "stop_id" oftype BIGINT, 
             "stop_name" oftype GermanText, 
             "stop_lat" oftype Latitude, 
             "stop_lon" oftype Longitude, 
@@ -30,7 +30,7 @@ pipeline TransitDataPipeline {
         ];
     }
 
-    block TransitDataLoader oftype SQLiteLoader {
+    block GTFSDataLoader oftype SQLiteLoader {
         table: "stops";
         file: "gtfs.sqlite";
     }
@@ -39,11 +39,11 @@ pipeline TransitDataPipeline {
 
     valuetype GermanText oftype text {
         constraints: [
-            AllowedCharactersConstraint
+            GermanUmlautsConstraint
         ];
     }
 
-    constraint AllowedCharactersConstraint on text: value matches /^[A-Za-z0-9äöüÄÖÜß\s\-\.(),]*$/;
+    constraint GermanUmlautsConstraint on text: value matches /^[A-Za-z0-9äöüÄÖÜß\s\-\.(),]*$/;
 
     valuetype Latitude oftype decimal {
         constraints: [
@@ -65,9 +65,9 @@ pipeline TransitDataPipeline {
     }
 
     constraint LongitudeRange oftype RangeConstraint {
-        lowerBound: -180;
+        lowerBound: -90;
         lowerBoundInclusive: true;
-        upperBound: 180;
+        upperBound: 90;
         upperBoundInclusive: true;
     }
 
@@ -79,15 +79,15 @@ pipeline TransitDataPipeline {
 
     constraint ZoneRange oftype RangeConstraint {
         lowerBound: 1925;
-        upperBound: 2000;
+        upperBound: 1925;
     }
 
-    // Defining the pipeline flow
-    TransitDataDownloader 
-    -> TransitDataProcessor 
-    -> TransitDataSelector
-    -> TransitDataTextInterpreter
-    -> TransitDataCSVParser
-    -> TransitDataValidator
-    -> TransitDataLoader;
+    
+    GTFSDataExtractor 
+    -> GTFSDataInterpreter 
+    -> GTFSFilePicker
+    -> GTFSTextFileInterpreter
+    -> GTFSCSVInterpreter
+    -> GTFSTableInterpreter
+    -> GTFSDataLoader;
 }
