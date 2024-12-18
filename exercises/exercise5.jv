@@ -1,6 +1,6 @@
 pipeline TransitDataPipeline {
 
-    // Defining the pipeline flow
+    //  Defining the Main Blocks 
     TransitDataDownloader 
     -> TransitDataProcessor 
     -> TransitDataSelector
@@ -8,73 +8,73 @@ pipeline TransitDataPipeline {
     -> TransitDataCSVParser
     -> TransitDataValidator
     -> TransitDataLoader;
-
+// Extracter
     block TransitDataDownloader oftype HttpExtractor {
         url: "https://gtfs.rhoenenergie-bus.de/GTFS.zip";
     }
-
+// Unziping the file
     block TransitDataProcessor oftype ArchiveInterpreter {
         archiveType: "zip";
     }
-
+// Picking the file and the path defining
     block TransitDataSelector oftype FilePicker {
         path: "/stops.txt";
     }
-
+// Csv interpreter
     block TransitDataTextInterpreter oftype TextFileInterpreter {}
 
     block TransitDataCSVParser oftype CSVInterpreter {
         enclosing: '"';
         enclosingEscape: '"';
     }
-
+// Block with the choosen column and the of type
     block TransitDataValidator oftype TableInterpreter {
         header: true;
         columns: [
             "stop_id" oftype integer, 
-            "stop_name" oftype GermanUmlauts, 
-            "stop_lat" oftype BetweenPlusMinusNinety, 
-            "stop_lon" oftype BetweenPlusMinusNinety, 
+            "stop_name" oftype GermanCharacterSet, 
+            "stop_lat" oftype RangeConstraint, 
+            "stop_lon" oftype RangeConstraint, 
             "zone_id" oftype ValidZone
         ];
     }
-
+// Sqlite loader 
     block TransitDataLoader oftype SQLiteLoader {
         table: "stops";
         file: "gtfs.sqlite";
     }
 
-    // Defining custom value types and constraints
+    // Value type with respect to the constraints
 
-    valuetype GermanUmlauts oftype text {
+    valuetype GermanCharacterSet oftype text {
         constraints: [
-            TransitDataGermanUmlautsConstraint
+            TransitDataGermanCharacterSet
         ];
     }
 
-    constraint TransitDataGermanUmlautsConstraint on text: value matches /^[A-Za-z0-9äöüÄÖÜß\s\-\.(),]*$/;
+    constraint TransitDataGermanCharacterSet on text: value matches /^[A-Za-z0-9äöüÄÖÜß\s\-\.(),]*$/;
 
-    valuetype BetweenPlusMinusNinety oftype decimal {
+    valuetype RangeConstraint oftype decimal {
         constraints: [
-            TransitDataBetweenPlusMinusNinetyConstraint
+            TransitDataRangeConstraint
         ];
     }
-
-    constraint TransitDataBetweenPlusMinusNinetyConstraint oftype RangeConstraint {
+// Defining the actual value with the range
+    constraint TransitDataRangeConstraint oftype RangeConstraint {
         lowerBound: -90;
         lowerBoundInclusive: true;
         upperBound: 90;
         upperBoundInclusive: true;
     }
-
+// Validate the interger value
     valuetype ValidZone oftype integer {
         constraints: [
             TransitDataValidZoneConstraint
         ];
     }
-
+// Bound the value to 1925
     constraint TransitDataValidZoneConstraint oftype RangeConstraint {
         lowerBound: 1925;
-        upperBound: 1925; // Ensure that only the zone 1925 is selected
+        upperBound: 1925; 
     }
 }
