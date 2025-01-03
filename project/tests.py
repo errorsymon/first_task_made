@@ -40,10 +40,10 @@ def test_preprocess_gdp_data(datasets):
 
 def test_train_and_get_importance(datasets):
     gdp_data, country_metadata, merged_data, usa_pivot, brazil_pivot = datasets
-
-    # Debugging step: Print the columns to verify if 'GDP' exists
-    print("USA Pivot Columns:", usa_pivot.columns)
-    print("Brazil Pivot Columns:", brazil_pivot.columns)
+    
+    # Debugging step: Print the first few rows to verify the data
+    print("USA Pivot Head:\n", usa_pivot.head())
+    print("Brazil Pivot Head:\n", brazil_pivot.head())
 
     # Check if 'GDP' column exists in both dataframes
     assert 'GDP' in usa_pivot.columns, "'GDP' column not found in USA pivot data"
@@ -57,6 +57,7 @@ def test_train_and_get_importance(datasets):
     assert not brazil_importance.empty, "Brazil feature importance should not be empty"
     assert 'Feature' in usa_importance.columns, "USA importance data should have 'Feature' column"
     assert 'Importance' in usa_importance.columns, "USA importance data should have 'Importance' column"
+
 
 
 def test_extract_top_indicators(datasets):
