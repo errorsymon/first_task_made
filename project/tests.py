@@ -54,7 +54,9 @@ def test_merge_data():
     
     assert "Country Name" in merged_data.columns, "Country Name missing in merged data"
     assert "GDP" in merged_data.columns, "GDP column missing in merged data"
-    assert not merged_data.isna().any(), "NaN values found in merged data"
+    
+    # Check if there are any missing values in the entire merged data
+    assert merged_data.isna().sum().sum() == 0, "NaN values found in merged data"
 
 # Test for RandomForest model and feature importance extraction
 def test_train_and_get_importance():
