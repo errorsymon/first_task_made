@@ -17,8 +17,12 @@ def test_preprocess_gdp_data():
     gdp_data, _, _, _ = load_datasets()
     processed_gdp = preprocess_gdp_data(gdp_data)
     assert "GDP" in processed_gdp.columns, "GDP column missing in processed data"
-    assert not processed_gdp.isna().any(), "NaN values found in processed GDP data"
-    assert "Year" in processed_gdp.columns, "Year column missing in processed data"
+    
+    # Check if any NaN values exist in the processed data columns
+    assert processed_gdp['GDP'].isna().sum() == 0, "NaN values found in GDP column"
+    assert processed_gdp['Year'].isna().sum() == 0, "NaN values found in Year column"
+    assert processed_gdp['Country Name'].isna().sum() == 0, "NaN values found in Country Name column"
+    assert processed_gdp['Country Code'].isna().sum() == 0, "NaN values found in Country Code column"
 
 # Test for country metadata preprocessing
 def test_preprocess_country_metadata():
