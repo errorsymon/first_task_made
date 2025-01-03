@@ -20,8 +20,8 @@ jobs:
 
     - name: Install dependencies
       run: |
-        if [ -f "project/requirements.txt" ]; then
-          pip install -r project/requirements.txt
+        if [ -f "requirements.txt" ]; then
+          pip install -r requirements.txt
         fi
         pip install pytest  # Ensure pytest is installed
 
