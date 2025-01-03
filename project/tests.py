@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 import os
 import sqlite3
-from main import load_datasets, preprocess_gdp_data, preprocess_country_metadata, preprocess_indicator_data, merge_data, train_and_get_importance, save_to_sqlite
+from pipeline import load_datasets, preprocess_gdp_data, preprocess_country_metadata, preprocess_indicator_data, merge_data, train_and_get_importance, save_to_sqlite
 
 @pytest.fixture
 def datasets():
