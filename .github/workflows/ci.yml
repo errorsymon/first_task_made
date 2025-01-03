@@ -18,12 +18,17 @@ jobs:
       with:
         python-version: '3.x'
 
+    - name: Debug requirements.txt
+      run: cat requirements.txt
+
     - name: Install dependencies
       run: |
         if [ -f "requirements.txt" ]; then
           pip install -r requirements.txt
+        else
+          echo "Error: requirements.txt file not found."
+          exit 1
         fi
-        pip install pytest  # Ensure pytest is installed
 
     - name: Run tests
       run: |
