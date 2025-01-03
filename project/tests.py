@@ -72,6 +72,11 @@ def test_train_and_get_importance():
     usa_pivot = preprocess_indicator_data(usa_data)
     brazil_pivot = preprocess_indicator_data(brazil_data)
     
+    # Ensure 'Year' is of type int64 in all dataframes before merging
+    usa_pivot['Year'] = pd.to_numeric(usa_pivot['Year'], errors='coerce')
+    brazil_pivot['Year'] = pd.to_numeric(brazil_pivot['Year'], errors='coerce')
+    merged_data['Year'] = pd.to_numeric(merged_data['Year'], errors='coerce')
+    
     # Merge datasets with USA and Brazil
     usa_merged = pd.merge(usa_pivot, merged_data, on="Year", how="left").fillna(0)
     brazil_merged = pd.merge(brazil_pivot, merged_data, on="Year", how="left").fillna(0)
