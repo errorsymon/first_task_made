@@ -1,6 +1,11 @@
+import sys
+import os
 import pytest
-import pandas as pd
-from project.pipeline import (
+
+# Add the project folder to the system path
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), 'project')))
+
+from pipeline import (
     load_datasets,
     preprocess_gdp_data,
     preprocess_country_metadata,
@@ -102,4 +107,3 @@ def test_final_data(datasets):
     with open(final_file, 'r') as f:
         lines = f.readlines()
         assert len(lines) > 0, "final_data.csv is empty"
-
