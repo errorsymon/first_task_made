@@ -1,9 +1,14 @@
 #!/bin/bash
-# This is the tests.sh shell script to run pytest
+set -e
 
-# Ensure that you're in the right directory (optional)
-# cd /path/to/your/tests
+# Ensure that pytest is installed
+if ! command -v pytest &> /dev/null; then
+  echo "Error: pytest is not installed. Please ensure pytest is installed in the environment."
+  exit 1
+fi
 
-# Run pytest and point it to the tests.py file (if necessary, use the path to tests.py)
+
 pytest --maxfail=1 --disable-warnings -q ./project/tests.py
 
+# Optional: Print a success message
+echo "Tests completed successfully."
