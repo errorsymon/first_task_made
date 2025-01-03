@@ -31,8 +31,8 @@ jobs:
 
     - name: Ensure scripts are executable
       run: |
-        chmod +x .project/pipline.sh
-        chmod +x .project/tests.sh
+        chmod +x project/pipline.sh
+        chmod +x project/tests.sh
 
     - name: Debug test discovery
       run: |
