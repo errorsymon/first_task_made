@@ -6,7 +6,7 @@ on:
       - main  # Trigger on push to the main branch
   pull_request:
     branches:
-      - main  # Trigger on pull requests targeting the main branch
+      - main  # Trigger on pull requests targeting main branch
 
 jobs:
   test:
@@ -17,7 +17,11 @@ jobs:
       uses: actions/checkout@v2  # Checkout the repository
 
     - name: List files in the repository for debugging
-      run: ls -R  # List all files in the repository for debugging
+      run: |
+        echo "Listing all files for debugging..."
+        ls -R  # List all files recursively in the repository
+        echo "Listing contents of the project folder..."
+        ls -l project/  # Verify that the project folder exists and contains expected files
 
     - name: Set up Python
       uses: actions/setup-python@v2
@@ -26,15 +30,17 @@ jobs:
 
     - name: Install dependencies
       run: |
+        echo "Upgrading pip and installing dependencies..."
         python -m pip install --upgrade pip  # Upgrade pip
-        pip install -r requirements.txt  # Install dependencies from requirements.txt
+        pip install pytest pandas scikit-learn  # Install pytest, pandas, and scikit-learn
 
-    - name: Run the main pipeline
+    - name: Ensure tests.sh exists and is executable
       run: |
-        echo "Running the pipeline script..."
-        python project/pipeline.py  # Execute the pipeline script
+        echo "Checking if tests.sh exists..."
+        ls -l project/tests.sh  # Check if tests.sh is in the 'project' folder
+        chmod +x project/tests.sh  # Make tests.sh executable
 
     - name: Run tests
       run: |
         echo "Running tests..."
-        python -m pytest project/tests.py  # Run the test suite using pytest
+        ./project/tests.sh  # Run the tests.sh script from the 'project' folder
