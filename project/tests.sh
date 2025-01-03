@@ -7,7 +7,6 @@ if ! command -v pytest &> /dev/null; then
   exit 1
 fi
 
-
 pytest --maxfail=1 --disable-warnings -q ./project/tests.py
 
 # Optional: Print a success message
