@@ -3,44 +3,43 @@ name: CI
 on:
   push:
     branches:
-      - main  # Trigger on push to the main branch
+      - main
   pull_request:
     branches:
-      - main  # Trigger on pull requests targeting main branch
+      - main
 
 jobs:
   test:
-    runs-on: ubuntu-latest  # Use the latest Ubuntu image
+    runs-on: ubuntu-latest
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v2  # Checkout the repository
+      uses: actions/checkout@v2
 
     - name: List files in the repository for debugging
-      run: |
-        echo "Listing all files for debugging..."
-        ls -R  # List all files recursively in the repository
-        echo "Listing contents of the project folder..."
-        ls -l project/  # Verify that the project folder exists and contains expected files
+      run: ls -R
 
     - name: Set up Python
       uses: actions/setup-python@v2
       with:
-        python-version: 3.9  # Use Python 3.9
+        python-version: 3.9
 
     - name: Install dependencies
       run: |
-        echo "Upgrading pip and installing dependencies..."
-        python -m pip install --upgrade pip  # Upgrade pip
-        pip install pytest pandas scikit-learn  # Install pytest, pandas, and scikit-learn
+        python -m pip install --upgrade pip
+        pip install pytest pandas scikit-learn
 
-    - name: Ensure tests.sh exists and is executable
+    - name: Ensure scripts are executable
       run: |
-        echo "Checking if tests.sh exists..."
-        ls -l project/tests.sh  # Check if tests.sh is in the 'project' folder
-        chmod +x project/tests.sh  # Make tests.sh executable
+        chmod +x .project/pipline.sh
+        chmod +x .project/tests.sh
 
-    - name: Run tests
+    - name: Debug test discovery
       run: |
-        echo "Running tests..."
-        ./project/tests.sh  # Run the tests.sh script from the 'project' folder
+        echo "Checking pytest test discovery..."
+        pytest --collect-only
+
+    - name: Run tests via tests.sh
+      run: |
+        echo "Executing tests..."
+        .project/tests.sh
