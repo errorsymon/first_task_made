@@ -25,11 +25,11 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install pandas numpy scikit-learn
+        pip install -r project/requirements.txt
 
-    - name: Run the Python script
+    - name: Run tests
       run: |
-        python test.py
+        python project/tests.py
 
     - name: Save Outputs (Artifacts)
       if: success()
@@ -37,7 +37,7 @@ jobs:
       with:
         name: Outputs
         path: |
-          final_data.csv
-          USA_Important_Features.csv
-          Brazil_Important_Features.csv
-          gdp_brazil_usa.db
+          project/final_data.csv
+          project/USA_Important_Features.csv
+          project/Brazil_Important_Features.csv
+          project/gdp_brazil_usa.db
