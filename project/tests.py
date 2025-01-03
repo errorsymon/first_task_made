@@ -1,50 +1,136 @@
+import pytest
 import pandas as pd
 import numpy as np
+from pipeline import load_datasets, preprocess_gdp_data, preprocess_country_metadata, preprocess_indicator_data, merge_data, train_and_get_importance, extract_top_indicators, save_to_sqlite
 from sklearn.ensemble import RandomForestRegressor
-from sklearn.preprocessing import LabelEncoder
-import os
-import sqlite3
-import tempfile
 
-# File paths for temporary storage in CI
-output_dir = tempfile.gettempdir()
-
-def load_datasets():
-    try:
-        gdp_data_url = "https://raw.githubusercontent.com/errorsymon/Data/d710147cfb374060422bd86a1889d33e54fa3f2b/API_NY.GDP.MKTP.CD_DS2_en_csv_v2_9865.csv"
-        country_metadata_url = "https://raw.githubusercontent.com/errorsymon/Data/d710147cfb374060422bd86a1889d33e54fa3f2b/Metadata_Country_API_NY.GDP.MKTP.CD_DS2_en_csv_v2_9865.csv"
-        usa_data_url = "https://raw.githubusercontent.com/errorsymon/Data/refs/heads/main/API_USA_DS2_en_csv_v2_3173.csv"
-        brazil_data_url = "https://raw.githubusercontent.com/errorsymon/Data/refs/heads/main/brazil.csv"
-
-        gdp_data = pd.read_csv(gdp_data_url, skiprows=4)
-        country_metadata = pd.read_csv(country_metadata_url)
-        usa_data = pd.read_csv(usa_data_url)
-        brazil_data = pd.read_csv(brazil_data_url)
-    except Exception as e:
-        print(f"Error loading datasets: {e}")
-        raise
-    return gdp_data, country_metadata, usa_data, brazil_data
-
-def preprocess_gdp_data(data):
-    years = [col for col in data.columns if col.isdigit()]
-    relevant_columns = ['Country Name', 'Country Code'] + years
-    data = data[relevant_columns].melt(id_vars=['Country Name', 'Country Code'], var_name='Year', value_name='GDP')
-    data['Year'] = data['Year'].astype(int)
-    data.dropna(subset=['GDP'], inplace=True)
-    return data
-
-def main():
-    print("Loading datasets...")
+# Test for loading datasets
+def test_load_datasets():
     gdp_data, country_metadata, usa_data, brazil_data = load_datasets()
+    assert not gdp_data.empty, "GDP data is empty"
+    assert not country_metadata.empty, "Country metadata is empty"
+    assert not usa_data.empty, "USA data is empty"
+    assert not brazil_data.empty, "Brazil data is empty"
 
-    print("Preprocessing GDP data...")
+# Test for GDP data preprocessing
+def test_preprocess_gdp_data():
+    gdp_data, _, _, _ = load_datasets()
+    processed_gdp = preprocess_gdp_data(gdp_data)
+    assert "GDP" in processed_gdp.columns, "GDP column missing in processed data"
+    assert not processed_gdp.isna().any(), "NaN values found in processed GDP data"
+    assert "Year" in processed_gdp.columns, "Year column missing in processed data"
+
+# Test for country metadata preprocessing
+def test_preprocess_country_metadata():
+    _, country_metadata, _, _ = load_datasets()
+    processed_metadata = preprocess_country_metadata(country_metadata)
+    assert "Country Code" in processed_metadata.columns, "Country Code missing in processed metadata"
+    assert "Region" in processed_metadata.columns, "Region column missing in processed metadata"
+    assert "IncomeGroup" in processed_metadata.columns, "IncomeGroup column missing in processed metadata"
+
+# Test for indicator data preprocessing (USA and Brazil)
+def test_preprocess_indicator_data():
+    _, _, usa_data, brazil_data = load_datasets()
+    usa_pivot = preprocess_indicator_data(usa_data)
+    brazil_pivot = preprocess_indicator_data(brazil_data)
+    
+    assert "Year" in usa_pivot.columns, "Year column missing in USA indicator data"
+    assert "Year" in brazil_pivot.columns, "Year column missing in Brazil indicator data"
+    
+    # Check if the melted data is correctly pivoted
+    assert usa_pivot.shape[0] > 0, "USA pivoted data is empty"
+    assert brazil_pivot.shape[0] > 0, "Brazil pivoted data is empty"
+
+# Test for merging GDP data with country metadata
+def test_merge_data():
+    gdp_data, country_metadata, _, _ = load_datasets()
+    processed_gdp = preprocess_gdp_data(gdp_data)
+    processed_metadata = preprocess_country_metadata(country_metadata)
+    merged_data = merge_data(processed_gdp, processed_metadata)
+    
+    assert "Country Name" in merged_data.columns, "Country Name missing in merged data"
+    assert "GDP" in merged_data.columns, "GDP column missing in merged data"
+    assert not merged_data.isna().any(), "NaN values found in merged data"
+
+# Test for RandomForest model and feature importance extraction
+def test_train_and_get_importance():
+    gdp_data, country_metadata, usa_data, brazil_data = load_datasets()
     gdp_data = preprocess_gdp_data(gdp_data)
-    print(f"GDP data processed: {gdp_data.shape}")
+    country_metadata = preprocess_country_metadata(country_metadata)
+    merged_data = merge_data(gdp_data, country_metadata)
+    
+    # Preprocess USA and Brazil data
+    usa_pivot = preprocess_indicator_data(usa_data)
+    brazil_pivot = preprocess_indicator_data(brazil_data)
+    
+    # Merge datasets with USA and Brazil
+    usa_merged = pd.merge(usa_pivot, merged_data, on="Year", how="left").fillna(0)
+    brazil_merged = pd.merge(brazil_pivot, merged_data, on="Year", how="left").fillna(0)
+    
+    # Test the RandomForest model for USA data
+    usa_importances, _ = train_and_get_importance(usa_merged, target_col="GDP")
+    assert not usa_importances.empty, "USA feature importances are empty"
+    assert "Feature" in usa_importances.columns, "Feature column missing in USA importance"
+    assert "Importance" in usa_importances.columns, "Importance column missing in USA importance"
+    
+    # Test the RandomForest model for Brazil data
+    brazil_importances, _ = train_and_get_importance(brazil_merged, target_col="GDP")
+    assert not brazil_importances.empty, "Brazil feature importances are empty"
+    assert "Feature" in brazil_importances.columns, "Feature column missing in Brazil importance"
+    assert "Importance" in brazil_importances.columns, "Importance column missing in Brazil importance"
 
-    # Example for testing purposes
-    print("Saving final data to temp directory...")
-    gdp_data.to_csv(os.path.join(output_dir, "processed_gdp_data.csv"), index=False)
-    print(f"Processed data saved to {output_dir}")
+# Test for extracting top indicators
+def test_extract_top_indicators():
+    gdp_data, country_metadata, usa_data, brazil_data = load_datasets()
+    gdp_data = preprocess_gdp_data(gdp_data)
+    country_metadata = preprocess_country_metadata(country_metadata)
+    merged_data = merge_data(gdp_data, country_metadata)
+    
+    # Preprocess USA and Brazil data
+    usa_pivot = preprocess_indicator_data(usa_data)
+    brazil_pivot = preprocess_indicator_data(brazil_data)
+    
+    # Merge datasets with USA and Brazil
+    usa_merged = pd.merge(usa_pivot, merged_data, on="Year", how="left").fillna(0)
+    brazil_merged = pd.merge(brazil_pivot, merged_data, on="Year", how="left").fillna(0)
+    
+    # Train models and get feature importances
+    usa_importances, _ = train_and_get_importance(usa_merged, target_col="GDP")
+    brazil_importances, _ = train_and_get_importance(brazil_merged, target_col="GDP")
+    
+    # Extract top 5 features
+    usa_top_indicators = extract_top_indicators(usa_importances, top_n=5)
+    brazil_top_indicators = extract_top_indicators(brazil_importances, top_n=5)
+    
+    assert len(usa_top_indicators) == 5, "Incorrect number of USA top indicators"
+    assert len(brazil_top_indicators) == 5, "Incorrect number of Brazil top indicators"
+
+# Test for saving data to SQLite (mock database connection)
+def test_save_to_sqlite():
+    gdp_data, country_metadata, usa_data, brazil_data = load_datasets()
+    gdp_data = preprocess_gdp_data(gdp_data)
+    country_metadata = preprocess_country_metadata(country_metadata)
+    merged_data = merge_data(gdp_data, country_metadata)
+    
+    # Preprocess USA and Brazil data
+    usa_pivot = preprocess_indicator_data(usa_data)
+    brazil_pivot = preprocess_indicator_data(brazil_data)
+    
+    # Merge datasets with USA and Brazil
+    usa_merged = pd.merge(usa_pivot, merged_data, on="Year", how="left").fillna(0)
+    brazil_merged = pd.merge(brazil_pivot, merged_data, on="Year", how="left").fillna(0)
+    
+    # Extract top indicators
+    usa_importances, _ = train_and_get_importance(usa_merged, target_col="GDP")
+    brazil_importances, _ = train_and_get_importance(brazil_merged, target_col="GDP")
+    usa_top_indicators = extract_top_indicators(usa_importances, top_n=5)
+    brazil_top_indicators = extract_top_indicators(brazil_importances, top_n=5)
+    
+    # Check if SQLite saving works (no exceptions)
+    try:
+        save_to_sqlite(usa_top_indicators, brazil_top_indicators, usa_merged, brazil_merged)
+    except Exception as e:
+        pytest.fail(f"Saving to SQLite failed with error: {e}")
 
 if __name__ == "__main__":
-    main()
+    pytest.main()
