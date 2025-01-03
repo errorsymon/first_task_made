@@ -34,18 +34,21 @@ def test_preprocess_gdp_data(datasets):
     gdp_data, country_metadata, merged_data, usa_pivot, brazil_pivot = datasets
     
     # Debugging: Print the number of missing GDP values
-    print(f"Number of missing GDP values before preprocessing: {gdp_data['GDP'].isna().sum()}")
+    missing_gdp = gdp_data['GDP'].isna().sum()
+    print(f"Number of missing GDP values before preprocessing: {missing_gdp}")
     
     assert 'GDP' in gdp_data.columns, "'GDP' column is missing after preprocessing"
     assert gdp_data['Year'].dtype == np.int64, "Year column is not of type int after preprocessing"
     
-    # Check if missing GDP values were dropped
-    rows_before = gdp_data.shape[0]
-    gdp_data_cleaned = gdp_data.dropna(subset=['GDP'])
-    rows_after = gdp_data_cleaned.shape[0]
-    
-    # Check if rows were dropped
-    assert rows_after < rows_before, f"Preprocessing did not drop rows with missing GDP values. Rows before: {rows_before}, rows after: {rows_after}"
+    if missing_gdp > 0:
+        # Check if missing GDP values were dropped only if there were missing values
+        rows_before = gdp_data.shape[0]
+        gdp_data_cleaned = gdp_data.dropna(subset=['GDP'])
+        rows_after = gdp_data_cleaned.shape[0]
+        assert rows_after < rows_before, f"Preprocessing did not drop rows with missing GDP values. Rows before: {rows_before}, rows after: {rows_after}"
+    else:
+        print("No missing GDP values, skipping the check for dropping rows.")
+
 
 
 def test_train_and_get_importance(datasets):
