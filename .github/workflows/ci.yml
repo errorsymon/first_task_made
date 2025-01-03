@@ -1,41 +1,43 @@
-name: CI
+name: Python CI
 
 on:
   push:
     branches:
-      - main  # Trigger on push to the main branch
+      - main
   pull_request:
     branches:
-      - main  # Trigger on pull requests targeting main branch
+      - main
 
 jobs:
-  test:
-    runs-on: ubuntu-latest  # Use the latest Ubuntu image
+  build:
+
+    runs-on: ubuntu-latest
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v2  # Checkout the repository
-
-    - name: List files in the repository for debugging
-      run: ls -R  # List all files in the repository for debugging
+      uses: actions/checkout@v3
 
     - name: Set up Python
-      uses: actions/setup-python@v2
+      uses: actions/setup-python@v4
       with:
-        python-version: 3.9  # Use Python 3.9
+        python-version: '3.8'
 
     - name: Install dependencies
       run: |
-        python -m pip install --upgrade pip  # Upgrade pip
-        pip install pytest pandas scikit-learn  # Install pytest, pandas, and scikit-learn
+        python -m pip install --upgrade pip
+        pip install pandas numpy scikit-learn
 
-    - name: Ensure tests.sh exists and is executable
+    - name: Run the Python script
       run: |
-        echo "Checking if tests.sh exists"
-        ls -l project/tests.sh  # Check if tests.sh is in the 'project' folder
-        chmod +x project/tests.sh  # Make tests.sh executable
+        python test.py
 
-    - name: Run tests
-      run: |
-        echo "Running tests..."
-        ./project/tests.sh  # Run the tests.sh script from the 'project' folder
+    - name: Save Outputs (Artifacts)
+      if: success()
+      uses: actions/upload-artifact@v3
+      with:
+        name: Outputs
+        path: |
+          final_data.csv
+          USA_Important_Features.csv
+          Brazil_Important_Features.csv
+          gdp_brazil_usa.db
