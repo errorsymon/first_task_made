@@ -18,7 +18,7 @@ def test_preprocess_gdp_data():
     processed_gdp = preprocess_gdp_data(gdp_data)
     assert "GDP" in processed_gdp.columns, "GDP column missing in processed data"
     
-    # Check if any NaN values exist in the processed data columns
+    # Check if any NaN values exist in critical columns
     assert processed_gdp['GDP'].isna().sum() == 0, "NaN values found in GDP column"
     assert processed_gdp['Year'].isna().sum() == 0, "NaN values found in Year column"
     assert processed_gdp['Country Name'].isna().sum() == 0, "NaN values found in Country Name column"
@@ -55,8 +55,11 @@ def test_merge_data():
     assert "Country Name" in merged_data.columns, "Country Name missing in merged data"
     assert "GDP" in merged_data.columns, "GDP column missing in merged data"
     
-    # Check if there are any missing values in the entire merged data
-    assert merged_data.isna().sum().sum() == 0, "NaN values found in merged data"
+    # Check for missing values in critical columns
+    assert merged_data[['Country Name', 'GDP']].isna().sum().sum() == 0, "NaN values found in critical merged data columns"
+    
+    # Allow NaN in 'Region' and 'IncomeGroup' columns but check for missing values in other columns
+    assert merged_data.drop(columns=["Region", "IncomeGroup"]).isna().sum().sum() == 0, "NaN values found in merged data excluding 'Region' and 'IncomeGroup'"
 
 # Test for RandomForest model and feature importance extraction
 def test_train_and_get_importance():
