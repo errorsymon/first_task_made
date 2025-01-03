@@ -1,5 +1,3 @@
 pytest
 pandas
 scikit-learn
-os
-sqlite3
