@@ -23,6 +23,7 @@ jobs:
         if [ -f "project/requirements.txt" ]; then
           pip install -r project/requirements.txt
         fi
+        pip install pytest  # Ensure pytest is installed
 
     - name: Run tests
       run: |
