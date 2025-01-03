@@ -1,79 +1,123 @@
-import pytest
 import pandas as pd
-from pipeline import (
-    load_datasets,
-    preprocess_gdp_data,
-    preprocess_country_metadata,
-    merge_data,
-    calculate_gdp_growth_rate
-)
+import numpy as np
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.preprocessing import LabelEncoder
+import os
+import sqlite3
 
-# Mock data for testing
-@pytest.fixture
-def mock_gdp_data():
-    return pd.DataFrame({
-        "Country Name": ["United States", "Brazil", "India"],
-        "Country Code": ["USA", "BRA", "IND"],
-        "1989": [1000, 500, 200],
-        "1990": [1100, 600, 300],
-        "1991": [1200, None, 400],
-    })
+def load_datasets():
+    gdp_data_url = "https://raw.githubusercontent.com/errorsymon/Data/d710147cfb374060422bd86a1889d33e54fa3f2b/API_NY.GDP.MKTP.CD_DS2_en_csv_v2_9865.csv"
+    country_metadata_url = "https://raw.githubusercontent.com/errorsymon/Data/d710147cfb374060422bd86a1889d33e54fa3f2b/Metadata_Country_API_NY.GDP.MKTP.CD_DS2_en_csv_v2_9865.csv"
+    usa_data_url = "https://raw.githubusercontent.com/errorsymon/Data/refs/heads/main/API_USA_DS2_en_csv_v2_3173.csv"
+    brazil_data_url = "https://raw.githubusercontent.com/errorsymon/Data/refs/heads/main/brazil.csv"
 
-@pytest.fixture
-def mock_country_metadata():
-    return pd.DataFrame({
-        "Country Code": ["USA", "BRA", "IND"],
-        "Region": ["North America", "Latin America", "Asia"],
-        "IncomeGroup": ["High income", "Upper middle income", "Lower middle income"]
-    })
+    gdp_data = pd.read_csv(gdp_data_url, skiprows=4)
+    country_metadata = pd.read_csv(country_metadata_url)
+    usa_data = pd.read_csv(usa_data_url)
+    brazil_data = pd.read_csv(brazil_data_url)
+    return gdp_data, country_metadata, usa_data, brazil_data
 
-@pytest.fixture
-def mock_filtered_gdp():
-    return pd.DataFrame({
-        "Country Name": ["Brazil", "Brazil", "United States", "United States"],
-        "Country Code": ["BRA", "BRA", "USA", "USA"],
-        "Year": [1989, 1990, 1989, 1990],
-        "GDP": [500, 600, 1000, 1100]
-    })
+def preprocess_gdp_data(data):
+    years = [col for col in data.columns if col.isdigit()]
+    relevant_columns = ['Country Name', 'Country Code'] + years
+    data = data[relevant_columns].melt(id_vars=['Country Name', 'Country Code'], var_name='Year', value_name='GDP')
+    data['Year'] = data['Year'].astype(int)
+    data.dropna(subset=['GDP'], inplace=True)
+    return data
 
-# Test loading datasets
-def test_load_datasets():
-    gdp_data, country_metadata, indicator_metadata, indicators_gdp_usa, indicators_gdp_bra = load_datasets()
-    assert isinstance(gdp_data, pd.DataFrame)
-    assert isinstance(country_metadata, pd.DataFrame)
-    assert isinstance(indicator_metadata, pd.DataFrame)
-    assert isinstance(indicators_gdp_usa, pd.DataFrame)
-    assert isinstance(indicators_gdp_bra, pd.DataFrame)
+def preprocess_country_metadata(data):
+    relevant_columns = ['Country Code', 'Region', 'IncomeGroup']
+    return data[relevant_columns]
 
-# Test preprocessing GDP data
-def test_preprocess_gdp_data(mock_gdp_data):
-    gdp_data_cleaned = preprocess_gdp_data(mock_gdp_data)
-    assert "Year" in gdp_data_cleaned.columns
-    assert "GDP" in gdp_data_cleaned.columns
-    assert gdp_data_cleaned['Country Code'].nunique() == 1  # Only USA data is expected after filtering
+def preprocess_indicator_data(data):
+    data = data.iloc[1:].reset_index(drop=True)
+    return data.melt(id_vars=["Indicator Code"], var_name="Year", value_name="Value").pivot(index="Year", columns="Indicator Code", values="Value").reset_index()
 
-# Test preprocessing country metadata
-def test_preprocess_country_metadata(mock_country_metadata):
-    country_metadata_cleaned = preprocess_country_metadata(mock_country_metadata)
-    assert set(country_metadata_cleaned.columns) == {"Country Code", "Region", "IncomeGroup"}
-    assert len(country_metadata_cleaned) == 3
+def merge_data(gdp_data, country_metadata):
+    return pd.merge(gdp_data, country_metadata, on='Country Code', how='left')
 
-# Test merging data
-def test_merge_data(mock_gdp_data, mock_country_metadata):
-    gdp_data_cleaned = preprocess_gdp_data(mock_gdp_data)
-    country_metadata_cleaned = preprocess_country_metadata(mock_country_metadata)
-    merged_df = merge_data(gdp_data_cleaned, country_metadata_cleaned)
-    assert "Region" in merged_df.columns
-    assert "IncomeGroup" in merged_df.columns
-    assert len(merged_df) == len(gdp_data_cleaned)
+def train_and_get_importance(data, target_col):
+    data = data.fillna(0)
+    y = data[target_col]
+    X = data.drop(columns=[target_col, "Country Name", "Country Code", "Region", "IncomeGroup"], errors="ignore")
+    label_encoder = LabelEncoder()
+    for col in X.select_dtypes(include=['object']).columns:
+        X[col] = label_encoder.fit_transform(X[col].astype(str))
+    model = RandomForestRegressor(random_state=42)
+    model.fit(X, y)
+    importance = pd.DataFrame({'Feature': X.columns, 'Importance': model.feature_importances_}).sort_values(by='Importance', ascending=False)
+    return importance, model
 
-# Test calculating GDP growth rate
-def test_calculate_gdp_growth_rate(mock_filtered_gdp):
-    result = calculate_gdp_growth_rate(mock_filtered_gdp)
-    assert "GDP Growth Rate" in result.columns
-    assert not result["GDP Growth Rate"].isnull().all()  # Ensure some growth rates are calculated
-    assert result.iloc[1]["GDP Growth Rate"] == pytest.approx(20.0, rel=1e-2)  # Example check for Brazil (1989 to 1990)
+def load_importance_files():
+    usa_importance_file = 'USA_Important_Features.csv'
+    brazil_importance_file = 'Brazil_Important_Features.csv'
 
-# Run tests with pytest
+    usa_importances = pd.read_csv(usa_importance_file)
+    brazil_importances = pd.read_csv(brazil_importance_file)
+
+    return usa_importances, brazil_importances
+
+def extract_top_indicators(importance_df, top_n=5):
+    top_indicators = importance_df.head(top_n)['Feature'].tolist()
+    return top_indicators
+
+def save_to_sqlite(usa_top_indicators, brazil_top_indicators, merged_usa_data, merged_brazil_data):
+    conn = sqlite3.connect('gdp_brazil_usa.db')
+
+    usa_top_indicators_data = merged_usa_data[['Year'] + usa_top_indicators]
+    usa_top_indicators_data.to_sql('usa_top_indicators', conn, if_exists='replace', index=False)
+
+    brazil_top_indicators_data = merged_brazil_data[['Year'] + brazil_top_indicators]
+    brazil_top_indicators_data.to_sql('brazil_top_indicators', conn, if_exists='replace', index=False)
+
+    conn.commit()
+    conn.close()
+    print("Top indicators for USA and Brazil have been saved to SQLite.")
+
+def main():
+    gdp_data, country_metadata, usa_data, brazil_data = load_datasets()
+    gdp_data = preprocess_gdp_data(gdp_data)
+    country_metadata = preprocess_country_metadata(country_metadata)
+    merged_data = merge_data(gdp_data, country_metadata)
+    merged_data['Year'] = merged_data['Year'].astype(str)
+
+    usa_pivot = preprocess_indicator_data(usa_data)
+    brazil_pivot = preprocess_indicator_data(brazil_data)
+    usa_pivot['Year'] = usa_pivot['Year'].astype(str)
+    brazil_pivot['Year'] = brazil_pivot['Year'].astype(str)
+
+    usa_merged = pd.merge(usa_pivot, merged_data, on="Year", how="left").fillna(0)
+    brazil_merged = pd.merge(brazil_pivot, merged_data, on="Year", how="left").fillna(0)
+
+    usa_importances, usa_model = train_and_get_importance(usa_merged, target_col="GDP")
+    brazil_importances, brazil_model = train_and_get_importance(brazil_merged, target_col="GDP")
+
+    output_dir = os.getcwd()
+    usa_features_file = os.path.join(output_dir, 'USA_Important_Features.csv')
+    brazil_features_file = os.path.join(output_dir, 'Brazil_Important_Features.csv')
+    usa_importances.to_csv(usa_features_file, index=False)
+    brazil_importances.to_csv(brazil_features_file, index=False)
+
+    usa_top_indicators = extract_top_indicators(usa_importances, top_n=5)
+    brazil_top_indicators = extract_top_indicators(brazil_importances, top_n=5)
+    print(f"Top 5 indicators for USA: {usa_top_indicators}")
+    print(f"Top 5 indicators for Brazil: {brazil_top_indicators}")
+
+    save_to_sqlite(usa_top_indicators, brazil_top_indicators, usa_merged, brazil_merged)
+
+    usa_top_indicators_data = usa_merged[['Year'] + usa_top_indicators].assign(Country='USA')
+    brazil_top_indicators_data = brazil_merged[['Year'] + brazil_top_indicators].assign(Country='Brazil')
+
+    usa_top_indicators_data = usa_top_indicators_data.drop_duplicates()
+    brazil_top_indicators_data = brazil_top_indicators_data.drop_duplicates()
+
+    with open('final_data.csv', 'w') as f:
+        f.write("USA Data\n")
+        usa_top_indicators_data.to_csv(f, index=False)
+        f.write("\nBrazil Data\n")
+        brazil_top_indicators_data.to_csv(f, index=False)
+
+    print("Final data has been saved to final_data.csv in separate tables for USA and Brazil.")
+
 if __name__ == "__main__":
-    pytest.main()
+    main()
