@@ -48,6 +48,15 @@ def train_and_get_importance(data, target_col):
     importance = pd.DataFrame({'Feature': X.columns, 'Importance': model.feature_importances_}).sort_values(by='Importance', ascending=False)
     return importance, model
 
+def find_top_gdp_change_year(data, country):
+    country_data = data[data['Country Name'] == country].sort_values(by='Year')
+    country_data['GDP_Change'] = country_data['GDP'].diff()
+    country_data['GDP_Change_Percent'] = (country_data['GDP_Change'] / country_data['GDP'].shift(1)) * 100
+    max_change_year = country_data.loc[country_data['GDP_Change'].idxmax(), 'Year']
+    max_change = country_data['GDP_Change'].max()
+    max_change_percent = country_data['GDP_Change_Percent'].max()
+    return max_change_year, max_change, max_change_percent
+
 def load_importance_files():
     # Load the feature importance CSV files for USA and Brazil
     usa_importance_file = 'USA_Important_Features.csv'
@@ -116,6 +125,12 @@ def main():
     
     # Save the top indicators to SQLite database
     save_to_sqlite(usa_top_indicators, brazil_top_indicators, usa_merged, brazil_merged)
+
+    # Find the top GDP change year for USA and Brazil
+    usa_top_year, usa_max_change, usa_max_change_percent = find_top_gdp_change_year(gdp_data, 'United States')
+    brazil_top_year, brazil_max_change, brazil_max_change_percent = find_top_gdp_change_year(gdp_data, 'Brazil')
+    print(f"USA: Year with highest GDP change: {usa_top_year} (Change: {usa_max_change}, Percent Change: {usa_max_change_percent:.2f}%)")
+    print(f"Brazil: Year with highest GDP change: {brazil_top_year} (Change: {brazil_max_change}, Percent Change: {brazil_max_change_percent:.2f}%)")
     
     # Create and save data tables for USA and Brazil
     usa_top_indicators_data = usa_merged[['Year'] + usa_top_indicators].assign(Country='USA')
@@ -124,13 +139,14 @@ def main():
     usa_top_indicators_data = usa_top_indicators_data.drop_duplicates()  # Remove duplicate rows
     brazil_top_indicators_data = brazil_top_indicators_data.drop_duplicates()  # Remove duplicate rows
 
-    
     # Combine and save final_data.csv in two sections
     with open('final_data.csv', 'w') as f:
         f.write("USA Data\n")
         usa_top_indicators_data.to_csv(f, index=False)
         f.write("\nBrazil Data\n")
         brazil_top_indicators_data.to_csv(f, index=False)
+        f.write(f"\nUSA: Year with highest GDP change: {usa_top_year} (Change: {usa_max_change})\n")
+        f.write(f"Brazil: Year with highest GDP change: {brazil_top_year} (Change: {brazil_max_change})\n")
     
     print("Final data has been saved to final_data.csv in separate tables for USA and Brazil.")
 
