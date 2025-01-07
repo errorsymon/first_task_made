@@ -4,6 +4,8 @@ from sklearn.ensemble import RandomForestRegressor
 from sklearn.preprocessing import LabelEncoder
 import os
 import sqlite3
+import matplotlib.pyplot as plt
+import seaborn as sns
 
 def load_datasets():
     gdp_data_url = "https://raw.githubusercontent.com/errorsymon/Data/d710147cfb374060422bd86a1889d33e54fa3f2b/API_NY.GDP.MKTP.CD_DS2_en_csv_v2_9865.csv"
@@ -89,6 +91,50 @@ def save_to_sqlite(usa_top_indicators, brazil_top_indicators, merged_usa_data, m
     conn.close()
     print("Top indicators for USA and Brazil have been saved to SQLite.")
 
+def plot_gdp_changes(gdp_data, country_name, title):
+    country_data = gdp_data[gdp_data['Country Name'] == country_name]
+    country_data = country_data.sort_values('Year')
+    
+    # Calculate GDP change and percentage change
+    country_data['GDP_Change'] = country_data['GDP'].diff()
+    country_data['GDP_Change_Percent'] = (country_data['GDP_Change'] / country_data['GDP'].shift(1)) * 100
+    
+    # Create a plot
+    plt.figure(figsize=(10, 6))
+    plt.plot(country_data['Year'], country_data['GDP'], label=f'{country_name} GDP', color='blue', marker='o')
+    plt.title(f'{title} GDP Over the Years')
+    plt.xlabel('Year')
+    plt.ylabel('GDP in USD')
+    plt.grid(True)
+    plt.xticks(rotation=45)
+    plt.legend()
+    plt.tight_layout()
+    plt.show()
+
+    # Plot GDP Change as a percentage
+    plt.figure(figsize=(10, 6))
+    plt.plot(country_data['Year'], country_data['GDP_Change_Percent'], label=f'{country_name} GDP % Change', color='red', marker='o')
+    plt.title(f'{title} GDP Percentage Change Over the Years')
+    plt.xlabel('Year')
+    plt.ylabel('GDP Percentage Change (%)')
+    plt.grid(True)
+    plt.xticks(rotation=45)
+    plt.legend()
+    plt.tight_layout()
+    plt.show()
+
+def plot_feature_importance(importance_df, country_name, top_n=5):
+    # Plotting top `n` features that contribute to GDP
+    top_features = importance_df.head(top_n)
+    
+    plt.figure(figsize=(10, 6))
+    sns.barplot(x='Importance', y='Feature', data=top_features, palette='viridis')
+    plt.title(f'Top {top_n} Factors Contributing to GDP for {country_name}')
+    plt.xlabel('Importance')
+    plt.ylabel('Feature')
+    plt.tight_layout()
+    plt.show()
+
 def main():
     gdp_data, country_metadata, usa_data, brazil_data = load_datasets()
     gdp_data = preprocess_gdp_data(gdp_data)
@@ -109,6 +155,13 @@ def main():
     # Train models and get feature importances
     usa_importances, usa_model = train_and_get_importance(usa_merged, target_col="GDP")
     brazil_importances, brazil_model = train_and_get_importance(brazil_merged, target_col="GDP")
+    
+    # Visualize GDP changes and top factors
+    plot_gdp_changes(gdp_data, 'United States', 'USA')
+    plot_gdp_changes(gdp_data, 'Brazil', 'Brazil')
+    
+    plot_feature_importance(usa_importances, 'USA', top_n=5)
+    plot_feature_importance(brazil_importances, 'Brazil', top_n=5)
     
     # Save feature importances
     output_dir = os.getcwd()
