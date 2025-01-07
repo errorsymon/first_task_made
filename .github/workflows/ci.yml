@@ -16,10 +16,10 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
-        python-version: '3.9'  # Specify the Python version
+        python-version: '3.x'
 
     - name: Debug requirements.txt
-      run: cat requirements.txt  # Debugging step to check contents of requirements.txt
+      run: cat requirements.txt
 
     - name: Install dependencies
       run: |
@@ -30,19 +30,11 @@ jobs:
           exit 1
         fi
 
-        # Debugging: Verify that matplotlib and other packages are installed
-        pip freeze
-
-    - name: Debug tests.sh
-      run: |
-        ls -l project/tests.sh  # Check if tests.sh exists and is executable
-        file project/tests.sh   # Verify it's a shell script
-
     - name: Run tests
       run: |
-        chmod +x project/tests.sh  # Ensure tests.sh is executable
-        ./project/tests.sh         # Run the test script
+        chmod +x project/tests.sh
+        ./project/tests.sh
 
     - name: Post-test actions
       if: failure()
-      run: echo "Tests failed. Please check the logs."
+      run: echo "Tests failed. Please check the logs." this is the ci.yml file currently i am using
