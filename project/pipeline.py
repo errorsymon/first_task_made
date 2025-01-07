@@ -139,7 +139,7 @@ def main():
     usa_top_indicators_data = usa_top_indicators_data.drop_duplicates()  # Remove duplicate rows
     brazil_top_indicators_data = brazil_top_indicators_data.drop_duplicates()  # Remove duplicate rows
 
-    # Combine and save final_data.csv in two sections
+    // Combine
     with open('final_data.csv', 'w') as f:
         f.write("USA Data\n")
         usa_top_indicators_data.to_csv(f, index=False)
