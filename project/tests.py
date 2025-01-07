@@ -3,7 +3,6 @@ import pandas as pd
 import numpy as np
 import os
 import sqlite3
-import tempfile
 from pipeline import load_datasets, preprocess_gdp_data, preprocess_country_metadata, preprocess_indicator_data, merge_data, train_and_get_importance, save_to_sqlite
 
 @pytest.fixture
@@ -51,6 +50,7 @@ def test_preprocess_gdp_data(datasets):
         print("No missing GDP values, skipping the check for dropping rows.")
 
 
+
 def test_train_and_get_importance(datasets):
     gdp_data, country_metadata, merged_data, usa_pivot, brazil_pivot = datasets
     merged_data['Year'] = merged_data['Year'].astype(str)  # Ensure consistency
@@ -90,14 +90,11 @@ def test_save_to_sqlite(datasets):
     usa_top_indicators = usa_importances.head(5)['Feature'].tolist()
     brazil_top_indicators = brazil_importances.head(5)['Feature'].tolist()
     
-    # Save to SQLite in a temporary file to avoid conflicts
-    temp_db = tempfile.NamedTemporaryFile(delete=False)
-    temp_db.close()  # Close the file so it can be used by SQLite
-    
-    save_to_sqlite(usa_top_indicators, brazil_top_indicators, usa_merged, brazil_merged, db_path=temp_db.name)
+    # Save to SQLite
+    save_to_sqlite(usa_top_indicators, brazil_top_indicators, usa_merged, brazil_merged)
     
     # Check if the tables exist in the SQLite database
-    conn = sqlite3.connect(temp_db.name)
+    conn = sqlite3.connect('gdp_brazil_usa.db')
     cursor = conn.cursor()
     cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
     tables = cursor.fetchall()
@@ -106,9 +103,6 @@ def test_save_to_sqlite(datasets):
     # Assert that tables are created for USA and Brazil
     assert ('usa_top_indicators',) in tables, "Table 'usa_top_indicators' not found in SQLite database"
     assert ('brazil_top_indicators',) in tables, "Table 'brazil_top_indicators' not found in SQLite database"
-    
-    # Cleanup the temporary SQLite database after the test
-    os.remove(temp_db.name)
 
 def test_final_data_csv(datasets):
     gdp_data, country_metadata, merged_data, usa_pivot, brazil_pivot = datasets
