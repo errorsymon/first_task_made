@@ -117,7 +117,7 @@ def main():
     usa_importances.to_csv(usa_features_file, index=False)
     brazil_importances.to_csv(brazil_features_file, index=False)
     
-    # Extract top 5 indicators for both USA and Brazil
+    # Extract top 10 indicators for both USA and Brazil
     usa_top_indicators = extract_top_indicators(usa_importances, top_n=10)
     brazil_top_indicators = extract_top_indicators(brazil_importances, top_n=10)
     print(f"Top 10 indicators for USA: {usa_top_indicators}")
