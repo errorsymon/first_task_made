@@ -123,7 +123,7 @@ def plot_gdp_changes(gdp_data, country_name, title):
     plt.tight_layout()
     plt.show()
 
-def plot_feature_importance(importance_df, country_name, top_n=5):
+def plot_feature_importance(importance_df, country_name, top_n=101):
     # Plotting top `n` features that contribute to GDP
     top_features = importance_df.head(top_n)
     
@@ -262,8 +262,8 @@ def main():
     # Visualize GDP changes and top factors
     plot_combined_gdp_changes(usa_merged, brazil_merged)
     
-    plot_feature_importance(usa_importances, 'USA', top_n=5)
-    plot_feature_importance(brazil_importances, 'Brazil', top_n=5)
+    plot_feature_importance(usa_importances, 'USA', top_n=10)
+    plot_feature_importance(brazil_importances, 'Brazil', top_n=10)
     
     # Save feature importances
     output_dir = os.getcwd()
@@ -272,9 +272,9 @@ def main():
     usa_importances.to_csv(usa_features_file, index=False)
     brazil_importances.to_csv(brazil_features_file, index=False)
     
-    # Extract top 5 indicators for both USA and Brazil
-    usa_top_indicators = extract_top_indicators(usa_importances, top_n=5)
-    brazil_top_indicators = extract_top_indicators(brazil_importances, top_n=5)
+    # Extract top 10 indicators for both USA and Brazil
+    usa_top_indicators = extract_top_indicators(usa_importances, top_n=10)
+    brazil_top_indicators = extract_top_indicators(brazil_importances, top_n=10)
     print(f"Top 5 indicators for USA: {usa_top_indicators}")
     print(f"Top 5 indicators for Brazil: {brazil_top_indicators}")
     
