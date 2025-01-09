@@ -67,7 +67,7 @@ def load_importance_files():
     
     return usa_importances, brazil_importances
 
-def extract_top_indicators(importance_df, top_n=5):
+def extract_top_indicators(importance_df, top_n=10):
     # Extract the top `n` features (indicators) based on importance value
     top_indicators = importance_df.head(top_n)['Feature'].tolist()
     return top_indicators
@@ -94,7 +94,7 @@ def main():
     gdp_data = preprocess_gdp_data(gdp_data)
     country_metadata = preprocess_country_metadata(country_metadata)
     merged_data = merge_data(gdp_data, country_metadata)
-    merged_data['Year'] = merged_data['Year'].astype(str)  # Ensure consistency
+    merged_data['Year'] = merged_data['Year'].astype(str)  
     
     # Preprocess USA and Brazil data
     usa_pivot = preprocess_indicator_data(usa_data)
@@ -118,10 +118,10 @@ def main():
     brazil_importances.to_csv(brazil_features_file, index=False)
     
     # Extract top 5 indicators for both USA and Brazil
-    usa_top_indicators = extract_top_indicators(usa_importances, top_n=5)
-    brazil_top_indicators = extract_top_indicators(brazil_importances, top_n=5)
-    print(f"Top 5 indicators for USA: {usa_top_indicators}")
-    print(f"Top 5 indicators for Brazil: {brazil_top_indicators}")
+    usa_top_indicators = extract_top_indicators(usa_importances, top_n=10)
+    brazil_top_indicators = extract_top_indicators(brazil_importances, top_n=10)
+    print(f"Top 10 indicators for USA: {usa_top_indicators}")
+    print(f"Top 10 indicators for Brazil: {brazil_top_indicators}")
     
     # Save the top indicators to SQLite database
     save_to_sqlite(usa_top_indicators, brazil_top_indicators, usa_merged, brazil_merged)
